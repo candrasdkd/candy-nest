@@ -54,23 +54,37 @@ export default function UpdatePrompt() {
       // Catat waktu update untuk cooldown
       localStorage.setItem(UPDATE_COOLDOWN_KEY, String(Date.now()));
       
-      // Panggil updateServiceWorker(true) yang akan mengirim SKIP_WAITING
-      // dan mencoba reload otomatis via vite-plugin-pwa logic.
-      const updatePromise = updateServiceWorker(true);
+      // Bersihkan semua PWA cache agar asset lama terhapus
+      if ('caches' in window) {
+        try {
+          const cacheNames = await caches.keys();
+          await Promise.all(cacheNames.map(name => caches.delete(name)));
+        } catch (e) {
+          console.error('Gagal menghapus cache:', e);
+        }
+      }
 
-      // Safety timeout: Jika dalam 2 detik tidak reload otomatis, kita paksa reload.
-      // Ini sering terjadi jika event controllerchange tidak tertangkap.
-      const safetyTimeout = setTimeout(() => {
-        console.log('Force reloading after timeout...');
-        window.location.reload();
-      }, 2000);
+      // Pastikan Service Worker baru melakukan skipWaiting
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.getRegistrations().then((registrations) => {
+          for (let registration of registrations) {
+            if (registration.waiting) {
+              registration.waiting.postMessage({ type: 'SKIP_WAITING' });
+            }
+          }
+        });
+      }
 
-      await updatePromise;
-      clearTimeout(safetyTimeout);
-      window.location.reload();
+      // Panggil bawaan vite-plugin-pwa
+      updateServiceWorker(true);
+
+      // Force reload setelah sedikit jeda agar skipWaiting sempat berjalan
+      setTimeout(() => {
+        window.location.href = window.location.pathname + '?updated=' + Date.now();
+      }, 1500);
+
     } catch (error) {
       console.error('Failed to update service worker:', error);
-      // Jika gagal pun, coba reload saja untuk reset state
       window.location.reload();
     }
   };

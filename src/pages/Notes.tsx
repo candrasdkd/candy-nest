@@ -106,13 +106,15 @@ export default function Notes() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="absolute inset-0 bg-sage-950/80 backdrop-blur-sm"
+              className="absolute inset-0 bg-sage-950/80"
               onClick={() => setShowHelp(false)}
             />
             <motion.div
-              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              transition={{ duration: 0.2, ease: "easeOut" }}
+              style={{ willChange: 'transform, opacity' }}
               className="relative w-full max-w-lg bg-white rounded-[2.5rem] shadow-2xl overflow-hidden"
             >
               <div className="p-8 sm:p-10 space-y-8">
@@ -313,18 +315,20 @@ export default function Notes() {
 
       {/* Detail Modal */}
       <NoteDetailModal
-        note={selectedNoteForDetail}
+        note={notes.find(n => n.id === selectedNoteForDetail?.id) || selectedNoteForDetail}
         onClose={() => setSelectedNoteForDetail(null)}
         onEdit={startEdit}
         onDelete={handleDelete}
         onPin={() => {
-          if (selectedNoteForDetail) {
-            updateNote(selectedNoteForDetail.id, { isPinned: !selectedNoteForDetail.isPinned });
+          const currentNote = notes.find(n => n.id === selectedNoteForDetail?.id) || selectedNoteForDetail;
+          if (currentNote) {
+            updateNote(currentNote.id, { isPinned: !currentNote.isPinned });
           }
         }}
         onArchive={() => {
-          if (selectedNoteForDetail) {
-            archiveNote(selectedNoteForDetail.id, !selectedNoteForDetail.isArchived);
+          const currentNote = notes.find(n => n.id === selectedNoteForDetail?.id) || selectedNoteForDetail;
+          if (currentNote) {
+            archiveNote(currentNote.id, !currentNote.isArchived);
           }
         }}
         onWhatsApp={handleWhatsAppExport}
@@ -339,13 +343,15 @@ export default function Notes() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="absolute inset-0 bg-sage-950/80 backdrop-blur-sm"
+              className="absolute inset-0 bg-sage-950/80"
               onClick={closeForm}
             />
             <motion.div
-              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              transition={{ duration: 0.2, ease: "easeOut" }}
+              style={{ willChange: 'transform, opacity' }}
               className="relative w-full max-w-2xl bg-white rounded-[2.5rem] shadow-2xl flex flex-col max-h-[90vh] overflow-hidden"
             >
               <form onSubmit={handleSubmit} className="flex flex-col h-full overflow-hidden">

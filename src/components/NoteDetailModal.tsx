@@ -1,4 +1,4 @@
-import { useState } from 'react';
+ import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   X, Pin, Archive, Edit3, Trash2, MessageCircle, 
@@ -34,9 +34,8 @@ export default function NoteDetailModal({
   const [fullscreenImg, setFullscreenImg] = useState<string | null>(null);
   const [isDownloading, setIsDownloading] = useState(false);
 
-  if (!note) return null;
-
   const toggleCheckbox = async (idx: number) => {
+    if (!note) return;
     const lines = note.content.split('\n');
     const line = lines[idx];
 
@@ -53,11 +52,62 @@ export default function NoteDetailModal({
       await onUpdate(note.id, { content: lines.join('\n') });
     }
   };
+  const uncheckAll = async () => {
+    if (!note) return;
+    const newContent = note.content
+      .split('\n')
+      .map(line => {
+        const trimmed = line.trim();
+        if (trimmed.startsWith('>x')) {
+          return line.replace(/>x\s?/, '> ');
+        }
+        return line;
+      })
+      .join('\n');
+
+    if (newContent !== note.content) {
+      await onUpdate(note.id, { content: newContent });
+    }
+  };
 
   const renderContent = () => {
+    if (!note) return null;
     const lines = note.content.split('\n');
+    
+    const checklistLines = lines.filter(line => line.trim().startsWith('>'));
+    const totalChecklists = checklistLines.length;
+    const checkedCount = checklistLines.filter(line => line.trim().startsWith('>x')).length;
+    const hasChecklists = totalChecklists > 0;
+    const hasCheckedItems = checkedCount > 0;
+
     return (
       <div className="space-y-4">
+        {hasChecklists && (
+          <div className="flex items-center justify-between mb-4 bg-sage-50 p-3 rounded-[1.2rem] border border-sage-100">
+            <div className="flex items-center gap-3 px-1">
+              <div className="w-8 h-8 rounded-[0.8rem] bg-white flex items-center justify-center text-sage-600 shadow-sm">
+                <Check className="w-4 h-4" />
+              </div>
+              <div className="flex flex-col">
+                <span className="text-[9px] font-black uppercase tracking-[0.2em] text-sage-400">Progres</span>
+                <span className="text-sm font-black text-sage-900 leading-none mt-0.5 font-mono">{checkedCount} <span className="text-sage-400 font-medium">/ {totalChecklists}</span></span>
+              </div>
+            </div>
+            
+            <button
+              type="button"
+              onClick={uncheckAll}
+              disabled={!hasCheckedItems}
+              className={`text-[10px] font-bold uppercase tracking-widest px-4 py-2.5 rounded-[0.8rem] transition-all flex items-center gap-2 ${
+                hasCheckedItems 
+                  ? 'bg-white text-sage-700 hover:text-rose-500 hover:bg-rose-50 border border-sage-200 shadow-sm active:scale-95' 
+                  : 'bg-transparent text-sage-300 opacity-50 cursor-not-allowed'
+              }`}
+            >
+              Reset
+            </button>
+          </div>
+        )}
         {lines.map((line, idx) => {
           const trimmed = line.trim();
           if (trimmed === '') return <div key={idx} className="h-4" />;
@@ -89,14 +139,15 @@ export default function NoteDetailModal({
             const isChecked = trimmed.startsWith('>x');
             const text = trimmed.replace(/^>x?\s?/, '').trim();
             return (
-              <div
+              <button
                 key={idx}
+                type="button"
                 onClick={() => toggleCheckbox(idx)}
-                className={`flex items-start gap-4 p-4 rounded-2xl transition-all duration-200 cursor-pointer ${
-                  isChecked ? 'bg-sage-50/50 opacity-60' : 'bg-white shadow-sm border border-sage-100 hover:border-sage-200'
+                className={`w-full text-left flex items-start gap-4 p-4 rounded-2xl transition-all duration-200 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-sage-400 ${
+                  isChecked ? 'bg-sage-50/50 opacity-60' : 'bg-white shadow-sm border border-sage-100 hover:border-sage-200 active:scale-[0.99]'
                 }`}
               >
-                <div className={`mt-0.5 w-6 h-6 rounded-lg border-2 flex items-center justify-center transition-all ${
+                <div className={`mt-0.5 w-6 h-6 shrink-0 rounded-lg border-2 flex items-center justify-center transition-all ${
                   isChecked ? 'bg-sage-900 border-sage-900 text-white' : 'bg-white border-sage-200'
                 }`}>
                   {isChecked && <Check className="w-4 h-4" strokeWidth={3} />}
@@ -104,7 +155,7 @@ export default function NoteDetailModal({
                 <span className={`text-base leading-tight transition-all ${isChecked ? 'text-sage-400 line-through' : 'text-sage-800 font-medium'}`}>
                   {text}
                 </span>
-              </div>
+              </button>
             );
           }
 
@@ -189,19 +240,22 @@ export default function NoteDetailModal({
   return (
     <>
       <AnimatePresence>
-        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
+        {note && (
+          <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="absolute inset-0 bg-sage-950/80 backdrop-blur-sm"
+            className="absolute inset-0 bg-sage-950/80"
             onClick={onClose}
           />
           
           <motion.div
-            initial={{ opacity: 0, scale: 0.9, y: 20 }}
+            initial={{ opacity: 0, scale: 0.95, y: 20 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.9, y: 20 }}
+            exit={{ opacity: 0, scale: 0.95, y: 20 }}
+            transition={{ duration: 0.2, ease: "easeOut" }}
+            style={{ willChange: 'transform, opacity' }}
             className="relative w-full max-w-2xl bg-white rounded-[2.5rem] shadow-2xl flex flex-col max-h-[90vh] overflow-hidden"
           >
             {/* Header */}
@@ -309,6 +363,7 @@ export default function NoteDetailModal({
             </div>
           </motion.div>
         </div>
+        )}
       </AnimatePresence>
 
       {/* Fullscreen Preview */}

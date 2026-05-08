@@ -10,7 +10,9 @@ import {
   Wallet,
   Sparkles,
   ArrowRightLeft,
-  Share2
+  Share2,
+  ChevronDown,
+  ChevronUp
 } from 'lucide-react';
 import { useDataStore } from '../store/useDataStore';
 import { useAuthStore } from '../store/useAuthStore';
@@ -27,6 +29,7 @@ export default function MonthlyAllocationTable({ hideActions = false }: { hideAc
   } = useDataStore();
 
   const [isEditing, setIsEditing] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(!hideActions);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [newItem, setNewItem] = useState({ name: '', amountA: 0, amountB: 0 });
   const [editValues, setEditValues] = useState({ name: '', amountA: 0, amountB: 0 });
@@ -130,7 +133,7 @@ export default function MonthlyAllocationTable({ hideActions = false }: { hideAc
       <div className="relative bg-white/80 backdrop-blur-2xl rounded-[3rem] border border-white p-6 md:p-10 shadow-[0_32px_64px_-16px_rgba(0,0,0,0.05)] overflow-hidden">
         
         {/* Header Section */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-6 md:mb-8">
           <div className="space-y-2">
             <div className="flex items-center gap-2 text-sage-500">
               <Sparkles className="w-4 h-4 fill-sage-500" />
@@ -140,10 +143,18 @@ export default function MonthlyAllocationTable({ hideActions = false }: { hideAc
             <p className="text-sm text-sage-400 font-medium">Atur siapa bayar apa untuk bulan ini secara transparan.</p>
           </div>
           
-          <div className="flex flex-wrap items-center gap-4">
+          <div className="flex flex-wrap items-center gap-3 md:gap-4">
+            <button
+              onClick={() => setIsExpanded(!isExpanded)}
+              className="flex items-center gap-2 px-5 py-3.5 rounded-[1.5rem] font-bold bg-white border border-sage-100 text-sage-600 hover:bg-sage-50 shadow-sm transition-all"
+            >
+              {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+              <span className="hidden sm:inline">{isExpanded ? 'Tutup Rincian' : 'Lihat Rincian'}</span>
+            </button>
+
             <button
               onClick={handleShare}
-              className="flex items-center gap-3 px-6 py-3.5 rounded-[1.5rem] font-bold bg-sage-50 text-sage-600 hover:bg-sage-100 transition-all"
+              className="flex items-center gap-2 px-5 py-3.5 rounded-[1.5rem] font-bold bg-sage-50 text-sage-600 hover:bg-sage-100 transition-all"
               title="Bagikan Rincian"
             >
               <Share2 className="w-4 h-4" />
@@ -163,8 +174,16 @@ export default function MonthlyAllocationTable({ hideActions = false }: { hideAc
         </div>
 
         {/* The Grid-based "Table" */}
-        <div className="space-y-1">
-          {/* Header Row */}
+        <AnimatePresence initial={false}>
+          {isExpanded && (
+            <motion.div
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: 'auto', opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              className="overflow-hidden"
+            >
+              <div className="space-y-1 mb-8">
+                {/* Header Row */}
           <div className="grid grid-cols-[1fr_auto_auto] md:grid-cols-[2fr_1fr_1fr] items-center gap-4 px-6 py-4 border-b border-sage-50">
             <span className="text-[10px] font-bold text-sage-300 uppercase tracking-[0.2em]">Keterangan</span>
             <div className="flex flex-col items-end">
@@ -298,11 +317,14 @@ export default function MonthlyAllocationTable({ hideActions = false }: { hideAc
                 </div>
               </motion.div>
             )}
-          </div>
-        </div>
+              </div>
+            </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* Footer Stats Section */}
-        <div className="mt-12 grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="mt-6 md:mt-8 grid grid-cols-1 md:grid-cols-3 gap-6 pt-6 border-t border-sage-50/50">
           <div className="p-6 bg-sage-50 rounded-[2rem] border border-sage-100 flex items-center justify-between group/total transition-all hover:bg-sage-100/50">
             <div>
               <p className="text-[10px] font-bold text-sage-400 uppercase tracking-widest mb-1">Total {userProfile?.displayName || 'Candra'}</p>

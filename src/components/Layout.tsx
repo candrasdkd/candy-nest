@@ -4,7 +4,6 @@ import { useNetworkStatus } from '../hooks/useNetworkStatus';
 import {
   LayoutDashboard,
   ArrowLeftRight,
-  PiggyBank,
   Wallet,
   FileText,
   Settings,
@@ -24,7 +23,6 @@ import { motion, AnimatePresence } from 'framer-motion';
 const navItems = [
   { to: '/', icon: LayoutDashboard, label: 'Dashboard' },
   { to: '/transactions', icon: ArrowLeftRight, label: 'Transaksi' },
-  { to: '/budget', icon: PiggyBank, label: 'Anggaran' },
   { to: '/savings', icon: Wallet, label: 'Pos' },
   { to: '/documents', icon: FileText, label: 'Dokumen' },
   { to: '/notes', icon: StickyNote, label: 'Catatan' },

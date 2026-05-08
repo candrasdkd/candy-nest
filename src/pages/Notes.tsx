@@ -7,8 +7,6 @@ import NoteDetailModal from '../components/NoteDetailModal';
 import { FamilyNote } from '../types/note';
 
 export default function Notes() {
-  const [isDownloading, setIsDownloading] = useState(false);
-  const [selectedNoteForDetail, setSelectedNoteForDetail] = useState<FamilyNote | null>(null);
   const {
     notes,
     loading,
@@ -32,6 +30,10 @@ export default function Notes() {
     setPreviewUrls,
     fullScreenUrl,
     setFullScreenUrl,
+    isDownloading,
+    selectedNoteForDetail,
+    setSelectedNoteForDetail,
+    handleDownloadImage,
     NOTE_COLORS,
     pinnedNotes,
     otherNotes,
@@ -545,26 +547,8 @@ export default function Notes() {
               <div className="flex items-center gap-2">
                 <button
                   disabled={isDownloading}
-                  onClick={async () => {
-                    if (isDownloading) return;
-                    setIsDownloading(true);
-                    try {
-                      const response = await fetch(fullScreenUrl!);
-                      const blob = await response.blob();
-                      const blobUrl = window.URL.createObjectURL(blob);
-                      const link = document.createElement('a');
-                      link.href = blobUrl;
-                      link.download = `note_preview.jpg`;
-                      document.body.appendChild(link);
-                      link.click();
-                      document.body.removeChild(link);
-                      window.URL.revokeObjectURL(blobUrl);
-                    } catch (e) {
-                      window.open(fullScreenUrl!, '_blank');
-                    } finally {
-                      setIsDownloading(false);
-                    }
-                  }} className="w-10 h-10 flex items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20 transition-all disabled:opacity-50"
+                  onClick={() => handleDownloadImage(fullScreenUrl!)}
+                  className="w-10 h-10 flex items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20 transition-all disabled:opacity-50"
                 >
                   {isDownloading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Download className="w-5 h-5" />}
                 </button>

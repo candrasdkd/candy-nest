@@ -48,13 +48,6 @@ export interface Transaction {
   relatedPotId?: string;
 }
 
-export interface Budget {
-  id: string;
-  coupleId: string;
-  category: Category;
-  limit: number;
-  month: string; // YYYY-MM
-}
 
 export interface MonthlyAllocation {
   id: string;

@@ -22,23 +22,3 @@ export function useTransactions() {
 
   return { transactions, loading, error, addTransaction, deleteTransaction };
 }
-
-export function useBudgets() {
-  const coupleId = useAuthStore(s => s.userProfile?.coupleId);
-  
-  const budgets = useDataStore(s => s.budgets);
-  const loading = useDataStore(s => s.budgetLoading);
-  const error = useDataStore(s => s.budgetError);
-  const initBudgets = useDataStore(s => s.initBudgets);
-  const setBudget = useDataStore(s => s.setBudget);
-  const deleteBudget = useDataStore(s => s.deleteBudget);
-
-  useEffect(() => {
-    if (coupleId) {
-      const unsub = initBudgets();
-      return () => unsub();
-    }
-  }, [coupleId, initBudgets]);
-
-  return { budgets, loading, error, setBudget, deleteBudget };
-}

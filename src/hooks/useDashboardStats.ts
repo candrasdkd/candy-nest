@@ -43,36 +43,6 @@ export function useDashboardStats(transactions: Transaction[], date: Date = new 
     }, 0);
   }, [transactions]);
 
-  // 3. Chart data 1 bulan penuh
-  const chartData = useMemo(() => {
-    const days: { date: string; income: number; expense: number }[] = [];
-    const monthStart = startOfMonth(date);
-    const monthEnd = endOfMonth(date);
-    
-    let current = new Date(monthStart);
-    while (current <= monthEnd) {
-      const key = format(current, 'yyyy-MM-dd');
-      const dayTx = transactions.filter(t => t.date.startsWith(key));
-      
-      let income = 0;
-      let expense = 0;
-
-      dayTx.forEach(t => {
-        if (t.type === 'income') income += t.amount;
-        else if (t.type === 'expense') expense += t.amount;
-      });
-
-      days.push({
-        date: format(current, 'dd', { locale: id }),
-        income,
-        expense,
-      });
-
-      current = new Date(current.getTime() + 86400000);
-    }
-    return days;
-  }, [transactions, date]);
-
   // 4. Pie chart data pengeluaran per kategori bulan ini
   const pieData = useMemo(() => {
     const grouped: Record<string, number> = {};
@@ -101,7 +71,6 @@ export function useDashboardStats(transactions: Transaction[], date: Date = new 
     totalExpense,
     balance,
     allTimeBalance,
-    chartData,
     pieData,
     recentTx,
   };

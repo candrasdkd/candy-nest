@@ -14,10 +14,6 @@ import { format } from 'date-fns';
 import { id } from 'date-fns/locale';
 import {
   ResponsiveContainer,
-  AreaChart,
-  Area,
-  XAxis,
-  YAxis,
   Tooltip,
   PieChart,
   Pie,
@@ -88,7 +84,6 @@ export default function Dashboard() {
     totalExpense,
     balance,
     allTimeBalance,
-    chartData,
     pieData,
     recentTx,
   } = useDashboardStats(transactions, now);
@@ -191,11 +186,11 @@ export default function Dashboard() {
       </motion.div>
 
       {/* Hero Stats Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      <div className="grid grid-cols-1 gap-8">
         {/* Main Balance Card */}
         <motion.div
           variants={itemVariants}
-          className={`lg:col-span-2 p-6 md:p-10 rounded-[2.5rem] md:rounded-[3rem] text-white relative overflow-hidden group transition-all duration-700 shadow-[0_32px_64px_-16px_rgba(0,0,0,0.2)] ${allTimeBalance >= 0 ? 'bg-gradient-to-br from-sage-700 to-sage-900' : 'bg-gradient-to-br from-rose-600 to-rose-800'}`}
+          className={`p-6 md:p-10 rounded-[2.5rem] md:rounded-[3rem] text-white relative overflow-hidden group transition-all duration-700 shadow-[0_32px_64px_-16px_rgba(0,0,0,0.2)] ${allTimeBalance >= 0 ? 'bg-gradient-to-br from-sage-700 to-sage-900' : 'bg-gradient-to-br from-rose-600 to-rose-800'}`}
         >
           <div className="absolute -right-20 -top-20 w-80 h-80 bg-white/10 rounded-full blur-[100px] group-hover:scale-125 transition-transform duration-1000" />
           <div className="absolute -left-10 -bottom-10 w-40 h-40 bg-rose-400/20 rounded-full blur-[60px]" />
@@ -249,42 +244,6 @@ export default function Dashboard() {
             </div>
           </div>
         </motion.div>
-
-        {/* Category Visual */}
-        <motion.div variants={itemVariants} className="bg-white rounded-[3rem] border border-sage-50 p-10 shadow-xl shadow-sage-900/[0.03] flex flex-col justify-between">
-          <div>
-            <h3 className="font-display text-2xl text-sage-900 mb-1">Pengeluaran</h3>
-            <p className="text-sm text-sage-400 font-medium mb-6">Berdasarkan kategori</p>
-          </div>
-
-          {pieData.length > 0 ? (
-            <div className="relative">
-              <div className="h-[200px]">
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie data={pieData} dataKey="value" cx="50%" cy="50%" innerRadius={60} outerRadius={85} strokeWidth={0} paddingAngle={4}>
-                      {pieData.map((_, i) => (
-                        <Cell key={i} fill={COLORS[i % COLORS.length]} className="focus:outline-none" />
-                      ))}
-                    </Pie>
-                    <Tooltip content={<CustomTooltip />} />
-                  </PieChart>
-                </ResponsiveContainer>
-              </div>
-              <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none p-4">
-                <span className="text-[8px] md:text-[10px] font-bold text-sage-300 uppercase tracking-widest mb-1">Total Keluar</span>
-                <span className="text-[11px] md:text-sm font-bold text-sage-900 text-center leading-tight">
-                  {formatRupiah(totalExpense)}
-                </span>
-              </div>
-            </div>
-          ) : (
-            <div className="flex flex-col items-center justify-center h-48 space-y-4 text-sage-300">
-              <Inbox className="w-12 h-12" />
-              <p className="text-sm font-medium">Belum ada data</p>
-            </div>
-          )}
-        </motion.div>
       </div>
 
       {/* Monthly Allocation Plan */}
@@ -294,62 +253,58 @@ export default function Dashboard() {
 
       {/* Charts & Trends Row */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Trend Area Chart */}
-        <motion.div variants={itemVariants} className="lg:col-span-2 bg-white rounded-[3rem] p-10 border border-sage-50 shadow-xl shadow-sage-900/[0.03]">
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
-            <div>
-              <h3 className="font-display text-2xl text-sage-900 mb-1">Tren Bulanan</h3>
-              <p className="text-sm text-sage-400 font-medium">Perbandingan In vs Out</p>
-            </div>
+        {/* Category Visual (Pie Chart & Legend) */}
+        <motion.div variants={itemVariants} className="lg:col-span-2 bg-white rounded-[3rem] p-8 md:p-10 border border-sage-50 shadow-xl shadow-sage-900/[0.03] flex flex-col">
+          <div className="mb-6 md:mb-8">
+            <h3 className="font-display text-2xl text-sage-900 mb-1">Pengeluaran Bulan Ini</h3>
+            <p className="text-sm text-sage-400 font-medium">Distribusi berdasarkan kategori</p>
+          </div>
 
-            <div className="flex flex-wrap items-center gap-4">
-              <div className="flex items-center gap-2">
-                <div className="w-3 h-3 rounded-full bg-emerald-400" />
-                <span className="text-[10px] font-bold uppercase tracking-wider text-sage-600">Pemasukan</span>
+          {pieData.length > 0 ? (
+            <div className="flex flex-col md:flex-row items-center gap-8 md:gap-12 flex-1">
+              <div className="relative w-full md:w-1/2 aspect-square max-h-[280px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie data={pieData} dataKey="value" cx="50%" cy="50%" innerRadius="65%" outerRadius="90%" strokeWidth={0} paddingAngle={4}>
+                      {pieData.map((_, i) => (
+                        <Cell key={i} fill={COLORS[i % COLORS.length]} className="focus:outline-none hover:opacity-80 transition-opacity cursor-pointer" />
+                      ))}
+                    </Pie>
+                    <Tooltip content={<CustomTooltip />} />
+                  </PieChart>
+                </ResponsiveContainer>
+                <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none p-4 text-center">
+                  <span className="text-[10px] font-bold text-sage-400 uppercase tracking-widest mb-1">Total Keluar</span>
+                  <span className="text-xl md:text-2xl font-bold text-sage-900 tracking-tight leading-none">
+                    {formatRupiah(totalExpense)}
+                  </span>
+                </div>
               </div>
-              <div className="flex items-center gap-2">
-                <div className="w-3 h-3 rounded-full bg-rose-400" />
-                <span className="text-[10px] font-bold uppercase tracking-wider text-sage-600">Pengeluaran</span>
+
+              <div className="w-full md:w-1/2 flex flex-col gap-3 max-h-[280px] overflow-y-auto pr-2 scrollbar-hide">
+                {pieData.map((entry, i) => (
+                  <div key={i} className="flex items-center justify-between p-4 rounded-2xl bg-sage-50/50 hover:bg-sage-50 transition-colors border border-sage-100/30">
+                    <div className="flex items-center gap-3">
+                      <div className="w-3.5 h-3.5 rounded-full flex-shrink-0" style={{ backgroundColor: COLORS[i % COLORS.length] }} />
+                      <span className="font-bold text-sage-900">{entry.name}</span>
+                    </div>
+                    <div className="flex flex-col items-end">
+                      <span className="font-mono text-sm font-black text-sage-900">{formatRupiah(entry.value)}</span>
+                      <span className="text-[10px] font-bold text-sage-400 uppercase tracking-wider mt-0.5">
+                        {((entry.value / totalExpense) * 100).toFixed(1)}%
+                      </span>
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
-          </div>
-          <div className="h-[280px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={chartData}>
-                <defs>
-                  <linearGradient id="colorIncome" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#10b981" stopOpacity={0.2} />
-                    <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
-                  </linearGradient>
-                  <linearGradient id="colorExpense" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#f43f5e" stopOpacity={0.2} />
-                    <stop offset="95%" stopColor="#f43f5e" stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-                <XAxis dataKey="date" tick={{ fontSize: 10, fill: '#94a3b8', fontWeight: 600 }} axisLine={false} tickLine={false} />
-                <YAxis hide />
-                <Tooltip content={<CustomTooltip />} />
-                <Area
-                  type="monotone"
-                  dataKey="income"
-                  name="Pemasukan"
-                  stroke="#10b981"
-                  fillOpacity={1}
-                  fill="url(#colorIncome)"
-                  strokeWidth={4}
-                />
-                <Area
-                  type="monotone"
-                  dataKey="expense"
-                  name="Pengeluaran"
-                  stroke="#f43f5e"
-                  fillOpacity={1}
-                  fill="url(#colorExpense)"
-                  strokeWidth={4}
-                />
-              </AreaChart>
-            </ResponsiveContainer>
-          </div>
+          ) : (
+            <div className="flex flex-col items-center justify-center flex-1 py-12 text-sage-300 bg-sage-50/50 rounded-[2rem] border border-dashed border-sage-100">
+              <Inbox className="w-12 h-12 mb-4 text-sage-200" />
+              <p className="font-bold text-sage-900 mb-1">Belum Ada Pengeluaran</p>
+              <p className="text-sm font-medium text-sage-500 text-center px-4">Transaksi pengeluaranmu akan muncul di sini.</p>
+            </div>
+          )}
         </motion.div>
 
         {/* Quick History List */}
@@ -393,15 +348,19 @@ export default function Dashboard() {
                       <cat.icon className="w-6 h-6 text-sage-500 group-hover:text-sage-700" />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <div className="font-bold text-sage-900 text-sm truncate leading-tight mb-0.5">
-                        {tx.description || cat.label}
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full uppercase tracking-tighter ${isMine ? 'bg-sage-100 text-sage-700' : 'bg-rose-100 text-rose-600'}`}>
+                      <div className="flex items-center gap-2 mb-0.5">
+                        <div className="font-bold text-sage-900 text-xs truncate leading-tight">
+                          {cat.label}
+                        </div>
+                        <div className={`text-[8px] font-bold px-2 py-0.5 rounded-full uppercase tracking-tighter ${isMine ? 'bg-sage-100 text-sage-700' : 'bg-rose-100 text-rose-600'}`}>
                           {isMine ? 'Saya' : (userProfile?.partnerName || tx.addedBy || 'Pasangan')}
-                        </span>
-                        <span className="text-[10px] text-sage-300 font-medium uppercase tracking-widest">{cat.label}</span>
+                        </div>
                       </div>
+                      {tx.description && (
+                        <div className="text-[10px] text-sage-500 italic truncate mb-1">
+                          "{tx.description}"
+                        </div>
+                      )}
                     </div>
                     <div className={`font-mono font-bold text-sm flex-shrink-0 ${tx.type === 'income' ? 'text-emerald-500' : 'text-rose-500'}`}>
                       {tx.type === 'income' ? '+' : '-'}{formatRupiah(tx.amount)}

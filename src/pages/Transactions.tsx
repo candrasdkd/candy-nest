@@ -6,7 +6,6 @@ import {
   Calendar,
   Inbox,
   ArrowUpDown,
-  ChevronRight,
   TrendingUp,
   TrendingDown,
   X
@@ -241,28 +240,32 @@ export default function Transactions() {
                         </div>
 
                         <div className="flex-1 min-w-0 py-1">
-                          <div className="flex items-center gap-1.5 mb-1.5">
-                            <h4 className="font-bold text-sage-900 text-sm md:text-base lg:text-lg truncate tracking-tight">
-                              {tx.description || cat.label}
+                          <div className="flex items-center gap-2 mb-1">
+                            <h4 className="font-bold text-sage-900 text-sm md:text-base tracking-tight truncate">
+                              {cat.label}
                             </h4>
-                            <ChevronRight className="w-3.5 h-3.5 text-sage-200 group-hover:text-sage-400 shrink-0" />
-                          </div>
-
-                          <div className="flex items-center gap-2 md:gap-3">
-                            <span className="text-[9px] md:text-[10px] font-bold text-sage-400 uppercase tracking-widest shrink-0">{cat.label}</span>
-                            {tx.createdAt && (
-                              <>
-                                <div className="w-1 h-1 rounded-full bg-sage-100 shrink-0" />
-                                <span className="text-[9px] md:text-[10px] font-bold text-sage-400 uppercase tracking-widest shrink-0">
-                                  {format(parseISO(tx.createdAt), 'HH:mm')}
-                                </span>
-                              </>
-                            )}
                             <div className="w-1 h-1 rounded-full bg-sage-100 shrink-0" />
-                            <div className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-[8px] md:text-[9px] font-bold tracking-tight uppercase ${isMine ? 'bg-sage-50 text-sage-600' : 'bg-rose-50 text-rose-500'
+                            <div className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-[8px] font-bold tracking-tight uppercase ${isMine ? 'bg-sage-50 text-sage-600' : 'bg-rose-50 text-rose-500'
                               }`}>
                               {isMine ? 'SAYA' : 'PASANGAN'}
                             </div>
+                          </div>
+
+                          {tx.description ? (
+                            <p className="text-xs text-sage-600 font-medium italic leading-relaxed line-clamp-2 bg-sage-50/50 px-3 py-2 rounded-xl border border-sage-100/50">
+                              "{tx.description}"
+                            </p>
+                          ) : (
+                            <p className="text-[10px] text-sage-300 italic font-medium px-1">Tanpa catatan</p>
+                          )}
+
+                          <div className="flex items-center gap-3 mt-2 px-1">
+                            {tx.createdAt && (
+                              <span className="text-[9px] font-bold text-sage-400 uppercase tracking-widest flex items-center gap-1.5">
+                                <Calendar className="w-3 h-3" />
+                                {format(parseISO(tx.createdAt), 'HH:mm')}
+                              </span>
+                            )}
                           </div>
                         </div>
 

@@ -14,6 +14,8 @@ export const useNotesLogic = () => {
   const [showHelp, setShowHelp] = useState(false);
   const [activeTab, setActiveTab] = useState<'active' | 'archived'>('active');
   const [editingNote, setEditingNote] = useState<FamilyNote | null>(null);
+  const [isDownloading, setIsDownloading] = useState(false);
+  const [selectedNoteForDetail, setSelectedNoteForDetail] = useState<FamilyNote | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [isCompressing, setIsCompressing] = useState(false);
   const [compressionTarget, setCompressionTarget] = useState(300);
@@ -234,6 +236,27 @@ export const useNotesLogic = () => {
     }
   };
 
+  const handleDownloadImage = async (url: string) => {
+    if (isDownloading) return;
+    setIsDownloading(true);
+    try {
+      const response = await fetch(url);
+      const blob = await response.blob();
+      const blobUrl = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = blobUrl;
+      link.download = `note_preview.jpg`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(blobUrl);
+    } catch (e) {
+      window.open(url, '_blank');
+    } finally {
+      setIsDownloading(false);
+    }
+  };
+
   return {
     notes,
     loading,
@@ -257,6 +280,10 @@ export const useNotesLogic = () => {
     setPreviewUrls,
     fullScreenUrl,
     setFullScreenUrl,
+    isDownloading,
+    selectedNoteForDetail,
+    setSelectedNoteForDetail,
+    handleDownloadImage,
     NOTE_COLORS,
     filteredNotes,
     pinnedNotes,

@@ -8,6 +8,9 @@ import {
   deleteDoc,
   doc,
   updateDoc,
+  getDoc,
+  getDocs,
+  writeBatch,
 } from 'firebase/firestore';
 import { db } from '../firebase';
 import { Transaction, MonthlyAllocation } from '../types';
@@ -127,7 +130,89 @@ export const useDataStore = create<DataState>((set, get) => ({
   },
 
   deleteTransaction: async (id) => {
-    await deleteDoc(doc(db, 'transactions', id));
+    try {
+      const txRef = doc(db, 'transactions', id);
+      const txSnap = await getDoc(txRef);
+      if (!txSnap.exists()) return;
+      const txData = txSnap.data() as Transaction;
+
+      // 1. Delete main transaction
+      try {
+        await deleteDoc(txRef);
+        console.log("Successfully deleted main transaction:", id);
+      } catch (err) {
+        console.error("Failed to delete main transaction:", err);
+        throw err;
+      }
+
+      // 2. If there is a related pot, handle it
+      if (txData.relatedPotId) {
+        const userProfile = useAuthStore.getState().userProfile;
+        if (!userProfile?.coupleId) throw new Error('Belum terhubung dengan pasangan');
+
+        // Find matching pot transaction by potId and coupleId to satisfy Firestore rules
+        const potTxsQ = query(
+          collection(db, 'potTransactions'),
+          where('coupleId', '==', userProfile.coupleId),
+          where('potId', '==', txData.relatedPotId)
+        );
+        const potTxsSnap = await getDocs(potTxsQ);
+        
+        let targetPotTxRef: any = null;
+        if (!potTxsSnap.empty) {
+          // Filter in client-side JS
+          const matchingDocs = potTxsSnap.docs.filter(doc => {
+            const potTxData = doc.data();
+            const matchesAmount = potTxData.amount === txData.amount;
+            const matchesDate = potTxData.date === txData.date;
+            const expectedType = txData.type === 'income' ? 'deposit' : 'withdraw';
+            const matchesType = potTxData.type === expectedType;
+            return matchesAmount && matchesDate && matchesType;
+          });
+
+          if (matchingDocs.length === 1) {
+            targetPotTxRef = matchingDocs[0].ref;
+          } else if (matchingDocs.length > 1) {
+            // If multiple match, match by note in description
+            const desc = txData.description || '';
+            targetPotTxRef = matchingDocs.find(doc => {
+              const potTxData = doc.data();
+              const potTxNote = potTxData.note || '';
+              return desc.endsWith(potTxNote);
+            })?.ref || matchingDocs[0].ref;
+          }
+        }
+
+        if (targetPotTxRef) {
+          try {
+            await deleteDoc(targetPotTxRef);
+            console.log("Successfully deleted related pot transaction:", targetPotTxRef.id);
+          } catch (err) {
+            // Gracefully catch permission error if the pot transaction belongs to partner and user lacks rule rights to delete it
+            console.warn("Could not delete associated pot transaction (permission denied or not found):", err);
+          }
+        }
+
+        // Update pot balance
+        const potRef = doc(db, 'savingsPots', txData.relatedPotId);
+        const potSnap = await getDoc(potRef);
+        if (potSnap.exists()) {
+          const potData = potSnap.data();
+          const diff = txData.type === 'income' ? -txData.amount : txData.amount;
+          try {
+            await updateDoc(potRef, {
+              currentBalance: (potData.currentBalance || 0) + diff
+            });
+            console.log("Successfully updated pot balance for:", txData.relatedPotId);
+          } catch (err) {
+            console.error("Failed to update pot balance:", err);
+          }
+        }
+      }
+    } catch (e) {
+      console.error("Error in deleteTransaction:", e);
+      throw e;
+    }
   },
 
 

@@ -364,6 +364,7 @@ export default function SavingsPots() {
         {s.modal.type === 'history' && s.selectedPot && (
           <BottomSheet onClose={s.closeModal} title={`Riwayat — ${s.selectedPot.name}`}>
             <div className="space-y-3 max-h-[50vh] overflow-y-auto scrollbar-hide">
+              {s.error && <ErrorBox msg={s.error} />}
               {s.potHistory.length === 0 ? (
                 <div className="text-center py-12 text-sage-300">
                   <History className="w-10 h-10 mx-auto mb-3" />
@@ -381,9 +382,18 @@ export default function SavingsPots() {
                         {format(new Date(tx.date || tx.createdAt), 'dd MMM yyyy', { locale: localeId })} · {tx.addedBy}
                       </p>
                     </div>
-                    <span className={`font-mono font-black text-sm flex-shrink-0 ${tx.type === 'deposit' ? 'text-emerald-600' : 'text-rose-500'}`}>
-                      {tx.type === 'deposit' ? '+' : '-'}{formatRupiah(tx.amount)}
-                    </span>
+                    <div className="flex items-center gap-3">
+                      <span className={`font-mono font-black text-sm flex-shrink-0 ${tx.type === 'deposit' ? 'text-emerald-600' : 'text-rose-500'}`}>
+                        {tx.type === 'deposit' ? '+' : '-'}{formatRupiah(tx.amount)}
+                      </span>
+                      <button
+                        onClick={() => s.handleDeleteHistory(tx.id)}
+                        className="p-2 rounded-xl text-sage-400 hover:text-rose-500 hover:bg-rose-50 transition-all shrink-0"
+                        title="Hapus riwayat pos"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
                   </div>
                 ))
               )}

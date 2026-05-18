@@ -12,6 +12,7 @@ import {
   orderBy,
   getDocs,
   limit,
+  getDoc,
 } from 'firebase/firestore';
 import { db } from '../firebase';
 import { SavingsPot, PotTransaction, POT_COLORS, POT_EMOJIS, MAX_POTS } from '../types';
@@ -39,6 +40,9 @@ interface SavingsState {
 
   // Allocation flow: distribute income to multiple pots at once
   allocateIncome: (allocations: { potId: string; amount: number }[], totalNote: string, date: string) => Promise<void>;
+
+  // Delete single pot transaction
+  deletePotTransaction: (potTxId: string) => Promise<void>;
 }
 
 export const useSavingsStore = create<SavingsState>((set, get) => ({
@@ -146,6 +150,90 @@ export const useSavingsStore = create<SavingsState>((set, get) => ({
     // Do NOT delete main transactions (mainTxs) because user wants to keep their financial records
 
     await batch.commit();
+  },
+
+  deletePotTransaction: async (potTxId) => {
+    try {
+      const userProfile = useAuthStore.getState().userProfile;
+      if (!userProfile?.coupleId) throw new Error('Belum terhubung dengan pasangan');
+
+      const potTxRef = doc(db, 'potTransactions', potTxId);
+      const potTxSnap = await getDoc(potTxRef);
+      if (!potTxSnap.exists()) return;
+      const potTxData = potTxSnap.data() as PotTransaction;
+
+      // 1. Try to find and delete the matching main transaction by relatedPotId first
+      const mainTxsQ = query(
+        collection(db, 'transactions'),
+        where('coupleId', '==', userProfile.coupleId),
+        where('relatedPotId', '==', potTxData.potId)
+      );
+      const mainTxsSnap = await getDocs(mainTxsQ);
+
+      let targetMainTxRef: any = null;
+      if (!mainTxsSnap.empty) {
+        // Filter in client-side JS
+        const matchingDocs = mainTxsSnap.docs.filter(doc => {
+          const mainTxData = doc.data();
+          const matchesAmount = mainTxData.amount === potTxData.amount;
+          const matchesDate = mainTxData.date === potTxData.date;
+          const expectedType = potTxData.type === 'deposit' ? 'income' : 'expense';
+          const matchesType = mainTxData.type === expectedType;
+          return matchesAmount && matchesDate && matchesType;
+        });
+
+        if (matchingDocs.length === 1) {
+          targetMainTxRef = matchingDocs[0].ref;
+        } else if (matchingDocs.length > 1) {
+          // Match by description ending with note
+          const note = potTxData.note || '';
+          targetMainTxRef = matchingDocs.find(doc => {
+            const mainTxData = doc.data();
+            const desc = mainTxData.description || '';
+            return desc.endsWith(note);
+          })?.ref || matchingDocs[0].ref;
+        }
+      }
+
+      if (targetMainTxRef) {
+        try {
+          await deleteDoc(targetMainTxRef);
+          console.log("Successfully deleted associated main transaction:", targetMainTxRef.id);
+        } catch (err) {
+          // Gracefully catch permission error if the main transaction belongs to partner and user lacks rule rights to delete it
+          console.warn("Could not delete associated main transaction (permission denied or not found):", err);
+        }
+      }
+
+      // 2. Update pot balance
+      const potRef = doc(db, 'savingsPots', potTxData.potId);
+      const potSnap = await getDoc(potRef);
+      if (potSnap.exists()) {
+        const potData = potSnap.data();
+        const diff = potTxData.type === 'deposit' ? -potTxData.amount : potTxData.amount;
+        try {
+          await updateDoc(potRef, {
+            currentBalance: (potData.currentBalance || 0) + diff
+          });
+          console.log("Successfully updated pot balance for:", potTxData.potId);
+        } catch (err) {
+          console.error("Failed to update pot balance:", err);
+          throw err;
+        }
+      }
+
+      // 3. Delete the pot transaction itself
+      try {
+        await deleteDoc(potTxRef);
+        console.log("Successfully deleted pot transaction:", potTxId);
+      } catch (err) {
+        console.error("Failed to delete pot transaction:", err);
+        throw err;
+      }
+    } catch (e) {
+      console.error("Error in deletePotTransaction:", e);
+      throw e;
+    }
   },
 
   depositToPot: async (potId, amount, note, date, mainCategory) => {

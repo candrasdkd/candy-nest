@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react';
 import { useSavingsStore } from '../store/useSavingsStore';
+import { useConfirmStore } from '../store/useConfirmStore';
 import { parseRupiah, POT_COLORS, POT_EMOJIS, MAX_POTS } from '../types';
 
 export type ModalMode =
@@ -13,7 +14,8 @@ export type ModalMode =
   | { type: 'delete_confirm'; potId: string };
 
 export function useSavingsPage() {
-  const { pots, potTransactions, potsLoading, addPot, updatePot, deletePot, depositToPot, withdrawFromPot, allocateIncome } = useSavingsStore();
+  const { confirm, close, setLoading: setConfirmLoading } = useConfirmStore();
+  const { pots, potTransactions, potsLoading, addPot, updatePot, deletePot, depositToPot, withdrawFromPot, allocateIncome, deletePotTransaction } = useSavingsStore();
 
   const [modal, setModal] = useState<ModalMode>({ type: 'none' });
   const [submitting, setSubmitting] = useState(false);
@@ -195,6 +197,25 @@ export function useSavingsPage() {
     }
   }
 
+  const handleDeleteHistory = (potTxId: string) => {
+    confirm({
+      title: 'Hapus Riwayat Pos',
+      message: 'Apakah Anda yakin ingin menghapus riwayat transaksi pos ini? Saldo pos dan transaksi utama terkait akan otomatis diperbarui.',
+      onConfirm: async () => {
+        setConfirmLoading(true);
+        try {
+          await deletePotTransaction(potTxId);
+          close();
+        } catch (e: any) {
+          console.error("Gagal menghapus riwayat pos:", e);
+          setError(e.message || 'Gagal menghapus riwayat');
+        } finally {
+          setConfirmLoading(false);
+        }
+      }
+    });
+  };
+
   return {
     // data
     pots,
@@ -225,6 +246,6 @@ export function useSavingsPage() {
     formatAmount,
     // handlers
     openAdd, openEdit, openDeposit, openWithdraw, openAllocate, openHistory, openDeleteConfirm, closeModal,
-    handleSavePot, handleMove, handleAllocate, handleDeletePot,
+    handleSavePot, handleMove, handleAllocate, handleDeletePot, handleDeleteHistory,
   };
 }

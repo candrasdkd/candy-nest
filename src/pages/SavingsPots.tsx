@@ -360,43 +360,132 @@ export default function SavingsPots() {
           </BottomSheet>
         )}
 
-        {/* History */}
+        {/* History / Expense Checker by Pot & Date Range */}
         {s.modal.type === 'history' && s.selectedPot && (
-          <BottomSheet onClose={s.closeModal} title={`Riwayat — ${s.selectedPot.name}`}>
-            <div className="space-y-3 max-h-[50vh] overflow-y-auto scrollbar-hide">
-              {s.error && <ErrorBox msg={s.error} />}
-              {s.potHistory.length === 0 ? (
-                <div className="text-center py-12 text-sage-300">
-                  <History className="w-10 h-10 mx-auto mb-3" />
-                  <p className="text-sm">Belum ada riwayat</p>
-                </div>
-              ) : (
-                s.potHistory.map(tx => (
-                  <div key={tx.id} className="flex items-center gap-3 p-4 rounded-2xl bg-sage-50">
-                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${tx.type === 'deposit' ? 'bg-emerald-100 text-emerald-600' : 'bg-rose-100 text-rose-500'}`}>
-                      {tx.type === 'deposit' ? <ArrowDownCircle className="w-5 h-5" /> : <ArrowUpCircle className="w-5 h-5" />}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="font-bold text-sage-900 text-sm truncate">{tx.note || (tx.type === 'deposit' ? 'Deposit' : 'Penarikan')}</p>
-                      <p className="text-[10px] text-sage-400">
-                        {format(new Date(tx.date || tx.createdAt), 'dd MMM yyyy', { locale: localeId })} · {tx.addedBy}
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <span className={`font-mono font-black text-sm flex-shrink-0 ${tx.type === 'deposit' ? 'text-emerald-600' : 'text-rose-500'}`}>
-                        {tx.type === 'deposit' ? '+' : '-'}{formatRupiah(tx.amount)}
-                      </span>
-                      <button
-                        onClick={() => s.handleDeleteHistory(tx.id)}
-                        className="p-2 rounded-xl text-sage-400 hover:text-rose-500 hover:bg-rose-50 transition-all shrink-0"
-                        title="Hapus riwayat pos"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
+          <BottomSheet onClose={s.closeModal} title="Cek & Analisis Pos">
+            <div className="space-y-5">
+              
+              {/* Pot Selector Dropdown */}
+              <div>
+                <label className="label-xs flex items-center gap-1.5 mb-1.5">
+                  <Wallet className="w-3 h-3 text-sage-500" />
+                  Pilih Pos Tabungan
+                </label>
+                <div className="relative">
+                  <select
+                    value={s.selectedPot.id}
+                    onChange={(e) => s.changeHistoryPotId(e.target.value)}
+                    className="w-full px-4 py-3 bg-sage-50/50 border border-sage-100 rounded-2xl text-sm font-bold text-sage-900 focus:outline-none focus:ring-2 focus:ring-sage-400/20 appearance-none cursor-pointer"
+                  >
+                    {s.pots.map(p => (
+                      <option key={p.id} value={p.id}>
+                        {p.emoji} {p.name} (Saldo: {formatRupiah(p.currentBalance)})
+                      </option>
+                    ))}
+                  </select>
+                  <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-sage-400 text-xs">
+                    ▼
                   </div>
-                ))
+                </div>
+              </div>
+
+              {/* Date Range Inputs */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="label-xs flex items-center gap-1 mb-1">
+                    <Calendar className="w-3 h-3 text-sage-400" />
+                    Mulai Tanggal
+                  </label>
+                  <input
+                    type="date"
+                    value={s.historyStartDate}
+                    onChange={(e) => s.setHistoryStartDate(e.target.value)}
+                    onClick={(e) => e.currentTarget.showPicker()}
+                    className="w-full px-3 py-2.5 bg-sage-50/50 border border-sage-100 rounded-xl text-xs font-bold text-sage-700 focus:outline-none cursor-pointer"
+                  />
+                </div>
+                <div>
+                  <label className="label-xs flex items-center gap-1 mb-1">
+                    <Calendar className="w-3 h-3 text-sage-400" />
+                    Akhir Tanggal
+                  </label>
+                  <input
+                    type="date"
+                    value={s.historyEndDate}
+                    onChange={(e) => s.setHistoryEndDate(e.target.value)}
+                    onClick={(e) => e.currentTarget.showPicker()}
+                    className="w-full px-3 py-2.5 bg-sage-50/50 border border-sage-100 rounded-xl text-xs font-bold text-sage-700 focus:outline-none cursor-pointer"
+                  />
+                </div>
+              </div>
+
+              {/* Quick Clear Filter if dates are filled */}
+              {(s.historyStartDate || s.historyEndDate) && (
+                <div className="flex justify-end">
+                  <button
+                    onClick={() => {
+                      s.setHistoryStartDate('');
+                      s.setHistoryEndDate('');
+                    }}
+                    className="text-[10px] font-bold text-rose-500 bg-rose-50 px-2.5 py-1 rounded-lg hover:bg-rose-100 transition-all flex items-center gap-1"
+                  >
+                    <X className="w-3 h-3" /> Bersihkan Filter
+                  </button>
+                </div>
               )}
+
+              {/* Statistics Summary Cards */}
+              <div className="grid grid-cols-2 gap-3">
+                <div className="p-3.5 rounded-2xl bg-emerald-50/50 border border-emerald-100/50 text-center">
+                  <span className="text-[8px] font-black uppercase tracking-wider text-emerald-600 block mb-0.5">Total Masuk</span>
+                  <span className="font-mono text-sm font-black text-emerald-700 block truncate">
+                    {formatRupiah(s.historyTotalIncome)}
+                  </span>
+                </div>
+                <div className="p-3.5 rounded-2xl bg-rose-50/50 border border-rose-100/50 text-center">
+                  <span className="text-[8px] font-black uppercase tracking-wider text-rose-500 block mb-0.5">Total Pengeluaran</span>
+                  <span className="font-mono text-sm font-black text-rose-600 block truncate">
+                    {formatRupiah(s.historyTotalExpense)}
+                  </span>
+                </div>
+              </div>
+
+              {/* Scrollable Transaction List */}
+              <div className="space-y-2.5 max-h-[35vh] overflow-y-auto scrollbar-hide pr-1 border-t border-sage-50 pt-3">
+                {s.error && <ErrorBox msg={s.error} />}
+                {s.filteredHistory.length === 0 ? (
+                  <div className="text-center py-10 text-sage-300">
+                    <History className="w-8 h-8 mx-auto mb-2 text-sage-200" />
+                    <p className="text-xs font-semibold">Tidak ada riwayat untuk periode ini</p>
+                  </div>
+                ) : (
+                  s.filteredHistory.map(tx => (
+                    <div key={tx.id} className="flex items-center gap-3 p-3.5 rounded-2xl bg-sage-50 border border-sage-100/50 hover:bg-sage-100/30 transition-all">
+                      <div className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 ${tx.type === 'deposit' ? 'bg-emerald-100 text-emerald-600' : 'bg-rose-100 text-rose-500'}`}>
+                        {tx.type === 'deposit' ? <ArrowDownCircle className="w-4 h-4" /> : <ArrowUpCircle className="w-4 h-4" />}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-bold text-sage-900 text-xs truncate">{tx.note || (tx.type === 'deposit' ? 'Deposit' : 'Penarikan')}</p>
+                        <p className="text-[9px] text-sage-400 font-medium">
+                          {format(new Date(tx.date || tx.createdAt), 'dd MMM yyyy', { locale: localeId })} · {tx.addedBy}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2.5">
+                        <span className={`font-mono font-black text-xs flex-shrink-0 ${tx.type === 'deposit' ? 'text-emerald-600' : 'text-rose-500'}`}>
+                          {tx.type === 'deposit' ? '+' : '-'}{formatRupiah(tx.amount)}
+                        </span>
+                        <button
+                          onClick={() => s.handleDeleteHistory(tx.id)}
+                          className="p-1.5 rounded-lg text-sage-400 hover:text-rose-500 hover:bg-rose-50 transition-all shrink-0"
+                          title="Hapus riwayat pos"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
             </div>
           </BottomSheet>
         )}

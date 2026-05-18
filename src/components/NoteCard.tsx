@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Check, Globe, ExternalLink, Pin, MessageCircle, Inbox, Archive, Edit3, Trash2, ChevronDown } from 'lucide-react';
+import { Check, Globe, ExternalLink, Pin, MessageCircle, Inbox, Archive, Edit3, Trash2, ChevronDown, Copy } from 'lucide-react';
 import { format } from 'date-fns';
 import { id } from 'date-fns/locale';
 import { FamilyNote } from '../types/note';
@@ -17,6 +17,19 @@ interface NoteCardProps {
 }
 
 export function NoteCard({ note, onEdit, onDelete, onPin, onArchive, onWhatsApp, onUpdate, onClick }: NoteCardProps) {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    try {
+      await navigator.clipboard.writeText(`${note.title}\n\n${note.content}`);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch (err) {
+      console.error("Gagal menyalin catatan:", err);
+    }
+  };
+
   return (
     <motion.div
       layout
@@ -68,6 +81,13 @@ export function NoteCard({ note, onEdit, onDelete, onPin, onArchive, onWhatsApp,
           </div>
 
           <div className="flex items-center bg-white/40 p-1 rounded-xl border border-black/5 shadow-sm">
+            <button
+              onClick={handleCopy}
+              className={`w-8 h-8 flex items-center justify-center rounded-lg transition-colors ${copied ? 'text-emerald-600 bg-emerald-50' : 'text-sage-400 hover:bg-sage-50'}`}
+              title={copied ? "Tersalin!" : "Salin Catatan"}
+            >
+              {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+            </button>
             <button
               onClick={() => onWhatsApp(note)}
               className="w-8 h-8 flex items-center justify-center text-green-600 hover:bg-green-50 rounded-lg transition-colors"

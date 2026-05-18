@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { 
   X, Pin, Archive, Edit3, Trash2, MessageCircle, 
   Inbox, Globe, ExternalLink, Check, Download,
-  ScanLine, Calendar, User, Loader2
+  ScanLine, Calendar, User, Loader2, Copy
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { id } from 'date-fns/locale';
@@ -33,6 +33,29 @@ export default function NoteDetailModal({
   const [showPasswords, setShowPasswords] = useState<Record<number, boolean>>({});
   const [fullscreenImg, setFullscreenImg] = useState<string | null>(null);
   const [isDownloading, setIsDownloading] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const [copiedValueIdx, setCopiedValueIdx] = useState<number | null>(null);
+
+  const handleCopy = async () => {
+    if (!note) return;
+    try {
+      await navigator.clipboard.writeText(`${note.title}\n\n${note.content}`);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch (err) {
+      console.error("Gagal menyalin catatan:", err);
+    }
+  };
+
+  const handleCopyValue = async (val: string, idx: number) => {
+    try {
+      await navigator.clipboard.writeText(val);
+      setCopiedValueIdx(idx);
+      setTimeout(() => setCopiedValueIdx(null), 2000);
+    } catch (err) {
+      console.error("Gagal menyalin nilai:", err);
+    }
+  };
 
   const toggleCheckbox = async (idx: number) => {
     if (!note) return;
@@ -207,14 +230,29 @@ export default function NoteDetailModal({
               <div key={idx} className="flex flex-col gap-1 bg-white p-5 rounded-[1.5rem] border border-sage-100 shadow-sm hover:shadow-md transition-all">
                 <div className="flex items-center justify-between mb-1">
                   <span className="text-[10px] font-black text-sage-400 uppercase tracking-widest">{label}</span>
-                  {isPassword && (
+                  <div className="flex items-center gap-1.5">
                     <button
-                      onClick={() => setShowPasswords(prev => ({ ...prev, [idx]: !prev[idx] }))}
-                      className="px-3 py-1 rounded-lg bg-sage-50 text-[10px] font-bold text-sage-600 uppercase hover:bg-sage-100 transition-colors"
+                      type="button"
+                      onClick={() => handleCopyValue(value, idx)}
+                      className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase transition-all flex items-center gap-1 ${
+                        copiedValueIdx === idx 
+                          ? 'bg-emerald-50 text-emerald-600' 
+                          : 'bg-sage-50 text-sage-600 hover:bg-sage-100'
+                      }`}
                     >
-                      {isVisible ? 'Sembunyi' : 'Lihat'}
+                      {copiedValueIdx === idx ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
+                      {copiedValueIdx === idx ? 'Tersalin' : 'Salin'}
                     </button>
-                  )}
+                    {isPassword && (
+                      <button
+                        type="button"
+                        onClick={() => setShowPasswords(prev => ({ ...prev, [idx]: !prev[idx] }))}
+                        className="px-3 py-1.5 rounded-lg bg-sage-50 text-[10px] font-bold text-sage-600 uppercase hover:bg-sage-100 transition-colors"
+                      >
+                        {isVisible ? 'Sembunyi' : 'Lihat'}
+                      </button>
+                    )}
+                  </div>
                 </div>
                 <div className="text-lg font-bold text-sage-900 break-words pr-2">
                   {isPassword && !isVisible ? (
@@ -322,6 +360,15 @@ export default function NoteDetailModal({
             <div className="flex-shrink-0 p-6 sm:p-8 bg-sage-50/50 border-t border-sage-100">
               <div className="grid grid-cols-2 gap-3 sm:flex sm:items-center sm:justify-between">
                 <div className="flex items-center gap-2">
+                  <button
+                    onClick={handleCopy}
+                    className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-all ${
+                      copied ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-500/20' : 'bg-white text-sage-400 border border-sage-100'
+                    }`}
+                    title={copied ? "Tersalin!" : "Salin Catatan"}
+                  >
+                    {copied ? <Check className="w-5 h-5" /> : <Copy className="w-5 h-5" />}
+                  </button>
                   <button
                     onClick={() => { onPin(); onClose(); }}
                     className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-all ${

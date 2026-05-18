@@ -50,6 +50,35 @@ export function useSavingsPage() {
     return potTransactions.filter(tx => tx.potId === modal.potId);
   }, [modal, potTransactions]);
 
+  // History filtering state
+  const [historyStartDate, setHistoryStartDate] = useState('');
+  const [historyEndDate, setHistoryEndDate] = useState('');
+
+  const filteredHistory = useMemo(() => {
+    return potHistory.filter(tx => {
+      const txDate = tx.date || tx.createdAt?.slice(0, 10) || '';
+      const matchesStart = !historyStartDate || txDate >= historyStartDate;
+      const matchesEnd = !historyEndDate || txDate <= historyEndDate;
+      return matchesStart && matchesEnd;
+    });
+  }, [potHistory, historyStartDate, historyEndDate]);
+
+  const historyTotalIncome = useMemo(() => {
+    return filteredHistory
+      .filter(tx => tx.type === 'deposit')
+      .reduce((s, tx) => s + tx.amount, 0);
+  }, [filteredHistory]);
+
+  const historyTotalExpense = useMemo(() => {
+    return filteredHistory
+      .filter(tx => tx.type === 'withdraw')
+      .reduce((s, tx) => s + tx.amount, 0);
+  }, [filteredHistory]);
+
+  function changeHistoryPotId(potId: string) {
+    setModal({ type: 'history', potId });
+  }
+
   const totalAllocated = useMemo(() => {
     return Object.values(allocations).reduce((s, v) => s + parseRupiah(v), 0);
   }, [allocations]);
@@ -101,6 +130,8 @@ export function useSavingsPage() {
   }
 
   function openHistory(potId: string) {
+    setHistoryStartDate('');
+    setHistoryEndDate('');
     setModal({ type: 'history', potId });
   }
 
@@ -224,6 +255,9 @@ export function useSavingsPage() {
     totalBalance,
     selectedPot,
     potHistory,
+    filteredHistory,
+    historyTotalIncome,
+    historyTotalExpense,
     totalAllocated,
     canAddPot: pots.length < MAX_POTS,
     // modal state
@@ -239,6 +273,9 @@ export function useSavingsPage() {
     moveAmount, setMoveAmount,
     moveNote, setMoveNote,
     moveDate, setMoveDate,
+    // history filters
+    historyStartDate, setHistoryStartDate,
+    historyEndDate, setHistoryEndDate,
     // allocation form
     allocations, setAllocations,
     allocNote, setAllocNote,
@@ -246,6 +283,6 @@ export function useSavingsPage() {
     formatAmount,
     // handlers
     openAdd, openEdit, openDeposit, openWithdraw, openAllocate, openHistory, openDeleteConfirm, closeModal,
-    handleSavePot, handleMove, handleAllocate, handleDeletePot, handleDeleteHistory,
+    handleSavePot, handleMove, handleAllocate, handleDeletePot, handleDeleteHistory, changeHistoryPotId,
   };
 }

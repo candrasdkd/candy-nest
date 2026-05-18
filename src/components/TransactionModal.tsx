@@ -1,7 +1,7 @@
 import { X, TrendingUp, TrendingDown, AlertTriangle, Loader2, Calendar, Type, Sparkles, Wallet } from 'lucide-react';
 import { motion, AnimatePresence, Variants } from 'framer-motion';
 import { useTransactionForm } from '../hooks/useTransactionForm';
-import { TransactionType } from '../types';
+import { TransactionType, Transaction } from '../types';
 
 const containerVariants: Variants = {
   hidden: { y: '100%', opacity: 0 },
@@ -30,9 +30,10 @@ const itemVariants: Variants = {
 
 interface Props {
   onClose: () => void;
+  transactionToEdit?: Transaction | null;
 }
 
-export default function TransactionModal({ onClose }: Props) {
+export default function TransactionModal({ onClose, transactionToEdit }: Props) {
   const {
     type,
     setType,
@@ -54,7 +55,7 @@ export default function TransactionModal({ onClose }: Props) {
     setSelectedPotId,
     pots,
     handleSubmit
-  } = useTransactionForm(onClose);
+  } = useTransactionForm(onClose, transactionToEdit);
 
   const theme = isExpense 
     ? {
@@ -101,9 +102,13 @@ export default function TransactionModal({ onClose }: Props) {
               <div className="space-y-0.5">
                 <div className="flex items-center gap-2 text-rose-400">
                   <Sparkles className="w-3 h-3 fill-rose-400" />
-                  <span className="text-[9px] font-bold uppercase tracking-[0.3em]">Transaksi Baru</span>
+                  <span className="text-[9px] font-bold uppercase tracking-[0.3em]">
+                    {transactionToEdit ? 'Edit Transaksi' : 'Transaksi Baru'}
+                  </span>
                 </div>
-                <h2 className="font-display text-2xl text-sage-900 tracking-tight leading-none">Catat Keuangan</h2>
+                <h2 className="font-display text-2xl text-sage-900 tracking-tight leading-none">
+                  {transactionToEdit ? 'Ubah Keuangan' : 'Catat Keuangan'}
+                </h2>
               </div>
               <button
                 type="button"
@@ -203,7 +208,7 @@ export default function TransactionModal({ onClose }: Props) {
                 />
               </div>
 
-              {pots.length > 0 && (
+              {!transactionToEdit && pots.length > 0 && (
                 <div className="space-y-1.5">
                   <label className="flex items-center gap-2 text-[9px] font-bold text-sage-400 uppercase tracking-widest px-1">
                     <Wallet className="w-3 h-3" /> Tautkan ke Pos (Opsional)
@@ -231,7 +236,7 @@ export default function TransactionModal({ onClose }: Props) {
             <button type="submit" disabled={loading}
               className={`w-full py-4 rounded-2xl font-bold text-white text-sm uppercase tracking-widest transition-all duration-300 shadow-xl ${loading ? 'opacity-50 cursor-not-allowed' : 'hover:scale-[1.02] active:scale-95'} ${theme.bg} ${theme.shadow}`}
             >
-              {loading ? <Loader2 className="w-5 h-5 animate-spin mx-auto" /> : 'Simpan Transaksi'}
+              {loading ? <Loader2 className="w-5 h-5 animate-spin mx-auto" /> : (transactionToEdit ? 'Simpan Perubahan' : 'Simpan Transaksi')}
             </button>
           </div>
         </form>

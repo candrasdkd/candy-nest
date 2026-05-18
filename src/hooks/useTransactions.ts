@@ -12,6 +12,7 @@ export function useTransactions() {
   const initTransactions = useDataStore(s => s.initTransactions);
   const addTransaction = useDataStore(s => s.addTransaction);
   const deleteTransaction = useDataStore(s => s.deleteTransaction);
+  const updateTransaction = useDataStore(s => s.updateTransaction);
 
   useEffect(() => {
     if (coupleId) {
@@ -20,5 +21,5 @@ export function useTransactions() {
     }
   }, [coupleId, initTransactions]);
 
-  return { transactions, loading, error, addTransaction, deleteTransaction };
+  return { transactions, loading, error, addTransaction, deleteTransaction, updateTransaction };
 }

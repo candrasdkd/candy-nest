@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import {
   Plus,
   Search,
@@ -8,13 +9,16 @@ import {
   ArrowUpDown,
   TrendingUp,
   TrendingDown,
-  X
+  X,
+  Edit2,
+  Eye
 } from 'lucide-react';
 import { motion, AnimatePresence, Variants } from 'framer-motion';
 import { format, parseISO } from 'date-fns';
 import { id } from 'date-fns/locale';
-import { formatRupiah, getCategoryInfo } from '../types';
+import { formatRupiah, getCategoryInfo, Transaction } from '../types';
 import TransactionModal from '../components/TransactionModal';
+import TransactionDetailModal from '../components/TransactionDetailModal';
 
 const containerVariants: Variants = {
   hidden: { opacity: 0 },
@@ -52,6 +56,9 @@ export default function Transactions() {
     handleDelete
   } = useTransactionsPage();
 
+  const [detailTx, setDetailTx] = useState<Transaction | null>(null);
+  const [editTx, setEditTx] = useState<Transaction | null>(null);
+
   return (
     <motion.div
       initial="hidden"
@@ -70,7 +77,10 @@ export default function Transactions() {
         </div>
 
         <button
-          onClick={() => setShowModal(true)}
+          onClick={() => {
+            setEditTx(null);
+            setShowModal(true);
+          }}
           className="flex items-center justify-center gap-3 px-8 py-4 bg-sage-800 text-white rounded-[2rem] font-bold hover:bg-sage-900 transition-all shadow-2xl shadow-sage-900/10 active:scale-95"
         >
           <Plus className="w-5 h-5" />
@@ -223,62 +233,65 @@ export default function Transactions() {
                 <div className="grid grid-cols-1 gap-3">
                   {txs.map(tx => {
                     const cat = getCategoryInfo(tx.category);
-
                     const isMine = tx.userId === userProfile?.uid;
 
                     return (
                       <motion.div
                         key={tx.id}
+                        onClick={() => setDetailTx(tx)}
                         whileHover={{ scale: 1.01, x: 5 }}
-                        className="group bg-white rounded-[2rem] p-5 lg:p-6 border border-sage-50 shadow-sm hover:shadow-xl hover:shadow-sage-900/[0.03] transition-all flex items-center gap-5 relative overflow-hidden"
+                        className="group bg-white rounded-[1.8rem] p-4 border border-sage-50 shadow-sm hover:shadow-xl hover:shadow-sage-900/[0.03] transition-all flex items-center justify-between gap-4 cursor-pointer relative overflow-hidden"
                       >
                         {/* Status Accent */}
                         <div className={`absolute left-0 top-0 bottom-0 w-1 ${tx.type === 'income' ? 'bg-emerald-400' : 'bg-rose-400'}`} />
 
-                        <div className="w-14 h-14 rounded-2xl bg-sage-50 flex items-center justify-center text-3xl flex-shrink-0 group-hover:scale-110 transition-transform duration-500">
-                          <cat.icon className="w-7 h-7 text-sage-500 group-hover:text-sage-700" />
-                        </div>
+                        <div className="flex items-center gap-3.5 min-w-0">
+                          <div className="w-12 h-12 rounded-xl bg-sage-50 flex items-center justify-center text-2xl flex-shrink-0 group-hover:scale-105 transition-transform duration-300">
+                            <cat.icon className="w-6 h-6 text-sage-500 group-hover:text-sage-700" />
+                          </div>
 
-                        <div className="flex-1 min-w-0 py-1">
-                          <div className="flex items-center gap-2 mb-1">
-                            <h4 className="font-bold text-sage-900 text-sm md:text-base tracking-tight truncate">
+                          <div className="min-w-0">
+                            <h4 className="font-bold text-sage-900 text-sm tracking-tight truncate">
                               {cat.label}
                             </h4>
-                            <div className="w-1 h-1 rounded-full bg-sage-100 shrink-0" />
-                            <div className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-[8px] font-bold tracking-tight uppercase ${isMine ? 'bg-sage-50 text-sage-600' : 'bg-rose-50 text-rose-500'
-                              }`}>
-                              {isMine ? 'SAYA' : 'PASANGAN'}
-                            </div>
-                          </div>
-
-                          {tx.description ? (
-                            <p className="text-xs text-sage-600 font-medium italic leading-relaxed line-clamp-2 bg-sage-50/50 px-3 py-2 rounded-xl border border-sage-100/50">
-                              "{tx.description}"
-                            </p>
-                          ) : (
-                            <p className="text-[10px] text-sage-300 italic font-medium px-1">Tanpa catatan</p>
-                          )}
-
-                          <div className="flex items-center gap-3 mt-2 px-1">
-                            {tx.createdAt && (
-                              <span className="text-[9px] font-bold text-sage-400 uppercase tracking-widest flex items-center gap-1.5">
-                                <Calendar className="w-3 h-3" />
-                                {format(parseISO(tx.createdAt), 'HH:mm')}
+                            <p className="text-[10px] text-sage-400 font-semibold flex items-center gap-1.5 mt-0.5">
+                              {tx.createdAt && format(parseISO(tx.createdAt), 'HH:mm')}
+                              <span>·</span>
+                              <span className={`text-[8.5px] font-black uppercase tracking-tight ${isMine ? 'text-sage-500' : 'text-rose-500'}`}>
+                                {isMine ? 'Saya' : 'Pasangan'}
                               </span>
-                            )}
+                            </p>
                           </div>
                         </div>
 
-                        <div className="flex flex-col items-end justify-between self-stretch py-1">
-                          <div className={`font-mono text-sm md:text-lg font-bold tracking-tighter whitespace-nowrap ${tx.type === 'income' ? 'text-emerald-600' : 'text-rose-600'}`}>
+                        <div className="flex items-center gap-3">
+                          <div className={`font-mono text-sm md:text-base font-black tracking-tighter whitespace-nowrap ${tx.type === 'income' ? 'text-emerald-600' : 'text-rose-600'}`}>
                             {tx.type === 'income' ? '+' : '-'}{formatRupiah(tx.amount)}
                           </div>
-                          <button
-                            onClick={(e) => { e.stopPropagation(); handleDelete(tx.id); }}
-                            className="p-2 rounded-lg text-sage-300 hover:text-rose-500 hover:bg-rose-50 transition-all sm:opacity-0 sm:group-hover:opacity-100"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
+
+                          {/* Quick Actions Panel */}
+                          <div className="flex items-center gap-1 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity duration-200">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setEditTx(tx);
+                              }}
+                              className="p-2 rounded-xl text-sage-400 hover:text-sage-700 hover:bg-sage-50 transition-all shrink-0"
+                              title="Ubah transaksi"
+                            >
+                              <Edit2 className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDelete(tx.id);
+                              }}
+                              className="p-2 rounded-xl text-sage-400 hover:text-rose-500 hover:bg-rose-50 transition-all shrink-0"
+                              title="Hapus transaksi"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
                         </div>
                       </motion.div>
                     );
@@ -292,6 +305,16 @@ export default function Transactions() {
 
       <AnimatePresence>
         {showModal && <TransactionModal onClose={() => setShowModal(false)} />}
+        {editTx && <TransactionModal onClose={() => setEditTx(null)} transactionToEdit={editTx} />}
+        {detailTx && (
+          <TransactionDetailModal
+            tx={detailTx}
+            onClose={() => setDetailTx(null)}
+            onEdit={() => setEditTx(detailTx)}
+            onDelete={() => handleDelete(detailTx.id)}
+            currentUserId={userProfile?.uid}
+          />
+        )}
       </AnimatePresence>
     </motion.div>
   );

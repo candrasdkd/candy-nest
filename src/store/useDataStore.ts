@@ -32,6 +32,7 @@ interface DataState {
   // Actions
   addTransaction: (data: Omit<Transaction, 'id' | 'coupleId' | 'userId' | 'createdAt' | 'addedBy'>) => Promise<void>;
   deleteTransaction: (id: string) => Promise<void>;
+  updateTransaction: (id: string, data: Partial<Omit<Transaction, 'id' | 'coupleId' | 'userId' | 'createdAt' | 'addedBy'>>) => Promise<void>;
   
   // Allocation Actions
   addAllocation: (data: Omit<MonthlyAllocation, 'id' | 'coupleId'>) => Promise<void>;
@@ -211,6 +212,104 @@ export const useDataStore = create<DataState>((set, get) => ({
       }
     } catch (e) {
       console.error("Error in deleteTransaction:", e);
+      throw e;
+    }
+  },
+
+  updateTransaction: async (id, updatedData) => {
+    try {
+      const txRef = doc(db, 'transactions', id);
+      const txSnap = await getDoc(txRef);
+      if (!txSnap.exists()) return;
+      const oldTxData = txSnap.data() as Transaction;
+
+      const newAmount = updatedData.amount ?? oldTxData.amount;
+      const newType = updatedData.type ?? oldTxData.type;
+      const newCategory = updatedData.category ?? oldTxData.category;
+      const newDescription = updatedData.description ?? oldTxData.description;
+      const newDate = updatedData.date ?? oldTxData.date;
+
+      // 1. Update the main transaction document
+      await updateDoc(txRef, {
+        amount: newAmount,
+        type: newType,
+        category: newCategory,
+        description: newDescription,
+        date: newDate,
+      });
+
+      // 2. Handle related pot transaction if exists
+      if (oldTxData.relatedPotId) {
+        const userProfile = useAuthStore.getState().userProfile;
+        if (userProfile?.coupleId) {
+          // Find matching pot transaction
+          const potTxsQ = query(
+            collection(db, 'potTransactions'),
+            where('coupleId', '==', userProfile.coupleId),
+            where('potId', '==', oldTxData.relatedPotId)
+          );
+          const potTxsSnap = await getDocs(potTxsQ);
+          
+          let targetPotTxRef: any = null;
+          let oldPotTxData: any = null;
+          if (!potTxsSnap.empty) {
+            const matchingDocs = potTxsSnap.docs.filter(doc => {
+              const potTxData = doc.data();
+              const matchesAmount = potTxData.amount === oldTxData.amount;
+              const matchesDate = potTxData.date === oldTxData.date;
+              const expectedType = oldTxData.type === 'income' ? 'deposit' : 'withdraw';
+              const matchesType = potTxData.type === expectedType;
+              return matchesAmount && matchesDate && matchesType;
+            });
+
+            if (matchingDocs.length > 0) {
+              targetPotTxRef = matchingDocs[0].ref;
+              oldPotTxData = matchingDocs[0].data();
+            }
+          }
+
+          if (targetPotTxRef && oldPotTxData) {
+            // Update pot transaction
+            const expectedNewPotType = newType === 'income' ? 'deposit' : 'withdraw';
+            await updateDoc(targetPotTxRef, {
+              amount: newAmount,
+              type: expectedNewPotType,
+              note: newDescription,
+              date: newDate,
+            });
+
+            // Adjust pot balance
+            const potRef = doc(db, 'savingsPots', oldTxData.relatedPotId);
+            const potSnap = await getDoc(potRef);
+            if (potSnap.exists()) {
+              const potData = potSnap.data();
+              const currentBal = potData.currentBalance || 0;
+              
+              // First, revert the old pot transaction effect on balance
+              let revertedBalance = currentBal;
+              if (oldPotTxData.type === 'deposit') {
+                revertedBalance -= oldPotTxData.amount;
+              } else {
+                revertedBalance += oldPotTxData.amount;
+              }
+
+              // Second, apply the new pot transaction effect
+              let finalBalance = revertedBalance;
+              if (expectedNewPotType === 'deposit') {
+                finalBalance += newAmount;
+              } else {
+                finalBalance -= newAmount;
+              }
+
+              await updateDoc(potRef, {
+                currentBalance: finalBalance
+              });
+            }
+          }
+        }
+      }
+    } catch (e) {
+      console.error("Error in updateTransaction:", e);
       throw e;
     }
   },

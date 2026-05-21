@@ -296,9 +296,9 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                 transition={{ duration: 0.25 }}
                 className="overflow-hidden"
               >
-                <div className="bg-rose-500 text-white px-4 py-2.5 flex items-center justify-center gap-2 text-xs font-bold">
-                  <WifiOff className="w-3.5 h-3.5 shrink-0" />
-                  <span>Kamu sedang offline — data baru tidak akan tersimpan</span>
+                <div className="bg-amber-600 text-white px-4 py-2.5 flex items-center justify-center gap-2 text-xs font-bold shadow-inner">
+                  <WifiOff className="w-3.5 h-3.5 shrink-0 animate-pulse" />
+                  <span>Koneksi terputus. Anda tetap dapat melihat dan mengedit data secara offline (otomatis sinkron saat online).</span>
                 </div>
               </motion.div>
             )}

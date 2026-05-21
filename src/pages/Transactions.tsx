@@ -1,4 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
+import { useDataStore } from '../store/useDataStore';
 import {
   Plus,
   Search,
@@ -58,6 +60,31 @@ export default function Transactions() {
 
   const [detailTx, setDetailTx] = useState<Transaction | null>(null);
   const [editTx, setEditTx] = useState<Transaction | null>(null);
+
+  const transactions = useDataStore(s => s.transactions);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const txId = searchParams.get('id');
+  const action = searchParams.get('action');
+
+  useEffect(() => {
+    if (txId && transactions.length > 0) {
+      const foundTx = transactions.find(t => t.id === txId);
+      if (foundTx) {
+        setDetailTx(foundTx);
+        searchParams.delete('id');
+        setSearchParams(searchParams, { replace: true });
+      }
+    }
+  }, [txId, transactions, setSearchParams, searchParams]);
+
+  useEffect(() => {
+    if (action === 'add') {
+      setEditTx(null);
+      setShowModal(true);
+      searchParams.delete('action');
+      setSearchParams(searchParams, { replace: true });
+    }
+  }, [action, setShowModal, searchParams, setSearchParams]);
 
   return (
     <motion.div

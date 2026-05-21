@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence, Variants } from 'framer-motion';
 import {
   Plus, Wallet, ArrowDownCircle, ArrowUpCircle,
@@ -32,6 +33,18 @@ export default function SavingsPots() {
   }, [initPots, userProfile?.coupleId]);
 
   const s = useSavingsPage();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const action = searchParams.get('action');
+
+  useEffect(() => {
+    if (action === 'add' && !s.potsLoading) {
+      if (s.canAddPot) {
+        s.openAdd();
+      }
+      searchParams.delete('action');
+      setSearchParams(searchParams, { replace: true });
+    }
+  }, [action, s.potsLoading, s.canAddPot, s.openAdd, searchParams, setSearchParams]);
 
   if (!userProfile?.coupleId) {
     return (

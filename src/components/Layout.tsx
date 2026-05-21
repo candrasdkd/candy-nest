@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { useNetworkStatus } from '../hooks/useNetworkStatus';
 import {
@@ -15,10 +15,12 @@ import {
   WifiOff,
   StickyNote,
   Sparkles,
+  Search,
 } from 'lucide-react';
 import { useAuthStore } from '../store/useAuthStore';
 import { useConfirmStore } from '../store/useConfirmStore';
 import { motion, AnimatePresence } from 'framer-motion';
+import GlobalSearchModal from './GlobalSearchModal';
 
 const navItems = [
   { to: '/', icon: LayoutDashboard, label: 'Dashboard' },
@@ -37,6 +39,18 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const { confirm, close } = useConfirmStore();
   const { isOnline } = useNetworkStatus();
+  const [searchOpen, setSearchOpen] = useState(false);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        setSearchOpen(prev => !prev);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
 
   async function handleLogout() {
     confirm({
@@ -68,7 +82,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
       </div>
 
       {/* User Info Card */}
-      <div className="px-4 py-6 border-b border-sage-800">
+      <div className="px-4 py-6 border-b border-sage-800 space-y-4">
         <div className="p-4 rounded-[1.5rem] bg-sage-800/40 border border-sage-800 flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl overflow-hidden bg-sage-800 border border-sage-700">
             <img
@@ -82,6 +96,20 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             <p className="text-sage-400 text-[10px] font-bold uppercase tracking-wider">Online</p>
           </div>
         </div>
+
+        {/* Spotlight Search Visual Trigger */}
+        <button
+          onClick={() => setSearchOpen(true)}
+          className="w-full flex items-center justify-between gap-3 px-4 py-3.5 bg-sage-800/30 hover:bg-sage-800/70 border border-sage-800/60 text-sage-400 hover:text-white rounded-[1.25rem] text-xs font-bold transition-all group active:scale-95"
+        >
+          <div className="flex items-center gap-2">
+            <Search className="w-3.5 h-3.5 text-sage-500 group-hover:text-rose-400 transition-colors" />
+            <span>Cari apa saja...</span>
+          </div>
+          <kbd className="bg-sage-800/80 border border-sage-700/50 px-1.5 py-0.5 rounded text-[8px] font-black text-sage-500 group-hover:text-rose-300 transition-colors select-none">
+            ⌘K
+          </kbd>
+        </button>
       </div>
 
       {/* Nav List */}
@@ -232,6 +260,12 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           </div>
           <div className="flex items-center gap-3">
             <button
+              onClick={() => setSearchOpen(true)}
+              className="w-10 h-10 rounded-full bg-sage-50 flex items-center justify-center border border-sage-100 text-sage-600 active:scale-95 transition-transform"
+            >
+              <Search className="w-5 h-5" />
+            </button>
+            <button
               onClick={() => navigate('/settings')}
               className="w-10 h-10 rounded-full bg-sage-50 flex items-center justify-center border border-sage-100 overflow-hidden active:scale-95 transition-transform"
             >
@@ -277,6 +311,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           <BottomNav />
         </div>
       </div>
+      <GlobalSearchModal isOpen={searchOpen} onClose={() => setSearchOpen(false)} />
     </div>
   );
 }

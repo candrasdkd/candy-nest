@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence, Variants } from 'framer-motion';
 import { Upload, FileText, ChevronDown, FolderOpen, Loader2, Filter, X, CheckCircle2, Download, User, AlertCircle } from 'lucide-react';
 import { useDocuments, CATEGORY_INFO, DocCategory } from '../hooks/useDocuments';
@@ -35,6 +36,29 @@ export default function Documents() {
   } = useDocuments();
 
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
+
+  const [searchParams, setSearchParams] = useSearchParams();
+  const docId = searchParams.get('id');
+  const action = searchParams.get('action');
+
+  useEffect(() => {
+    if (docId && documents.length > 0) {
+      const foundDoc = documents.find(d => d.id === docId);
+      if (foundDoc) {
+        setSelected(foundDoc);
+        searchParams.delete('id');
+        setSearchParams(searchParams, { replace: true });
+      }
+    }
+  }, [docId, documents, setSelected, searchParams, setSearchParams]);
+
+  useEffect(() => {
+    if (action === 'add') {
+      setShowUpload(true);
+      searchParams.delete('action');
+      setSearchParams(searchParams, { replace: true });
+    }
+  }, [action, setShowUpload, searchParams, setSearchParams]);
 
   if (loading) {
     return (

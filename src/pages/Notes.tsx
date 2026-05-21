@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { StickyNote, Plus, Search, Pin, X, Loader2, Archive, Inbox, Camera, ScanLine, HelpCircle, Info, Globe, Check, Download } from 'lucide-react';
 import { useNotesLogic } from '../hooks/useNotesLogic';
@@ -48,6 +49,29 @@ export default function Notes() {
     archiveNote,
     handleDelete
   } = useNotesLogic();
+
+  const [searchParams, setSearchParams] = useSearchParams();
+  const noteId = searchParams.get('id');
+  const action = searchParams.get('action');
+
+  useEffect(() => {
+    if (noteId && notes.length > 0) {
+      const foundNote = notes.find(n => n.id === noteId);
+      if (foundNote) {
+        setSelectedNoteForDetail(foundNote);
+        searchParams.delete('id');
+        setSearchParams(searchParams, { replace: true });
+      }
+    }
+  }, [noteId, notes, setSelectedNoteForDetail, searchParams, setSearchParams]);
+
+  useEffect(() => {
+    if (action === 'add') {
+      setIsAdding(true);
+      searchParams.delete('action');
+      setSearchParams(searchParams, { replace: true });
+    }
+  }, [action, setIsAdding, searchParams, setSearchParams]);
 
   if (loading) {
     return (

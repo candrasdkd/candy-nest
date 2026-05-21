@@ -40,11 +40,32 @@ interface DataState {
   deleteAllocation: (id: string) => Promise<void>;
 }
 
+const getCachedTransactions = (): Transaction[] => {
+  try {
+    const val = localStorage.getItem('candy-nest:transactions');
+    return val ? JSON.parse(val) : [];
+  } catch {
+    return [];
+  }
+};
+
+const getCachedAllocations = (): MonthlyAllocation[] => {
+  try {
+    const val = localStorage.getItem('candy-nest:allocations');
+    return val ? JSON.parse(val) : [];
+  } catch {
+    return [];
+  }
+};
+
+const initialTransactions = getCachedTransactions();
+const initialAllocations = getCachedAllocations();
+
 export const useDataStore = create<DataState>((set, get) => ({
-  transactions: [],
-  allocations: [],
-  txLoading: true,
-  allocationLoading: true,
+  transactions: initialTransactions,
+  allocations: initialAllocations,
+  txLoading: initialTransactions.length === 0,
+  allocationLoading: initialAllocations.length === 0,
   txError: null,
   allocationError: null,
 
@@ -76,6 +97,7 @@ export const useDataStore = create<DataState>((set, get) => ({
             const aTime = a.createdAt || '';
             return bTime.localeCompare(aTime);
           });
+        localStorage.setItem('candy-nest:transactions', JSON.stringify(data));
         set({ transactions: data, txLoading: false, txError: null });
       },
       (err) => {
@@ -106,6 +128,7 @@ export const useDataStore = create<DataState>((set, get) => ({
         const data = snap.docs
           .map(d => ({ id: d.id, ...d.data() } as MonthlyAllocation))
           .sort((a, b) => (a.order || 0) - (b.order || 0));
+        localStorage.setItem('candy-nest:allocations', JSON.stringify(data));
         set({ allocations: data, allocationLoading: false, allocationError: null });
       },
       (err) => {
@@ -341,6 +364,8 @@ export const useDataStore = create<DataState>((set, get) => ({
   },
 
   clearData: () => {
+    localStorage.removeItem('candy-nest:transactions');
+    localStorage.removeItem('candy-nest:allocations');
     set({
       transactions: [],
       allocations: [],

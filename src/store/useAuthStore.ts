@@ -41,14 +41,31 @@ interface AuthState {
   updateUserProfile: (data: { displayName?: string, gender?: 'male' | 'female' }) => Promise<void>;
 }
 
-function generateInviteCode(): string {
-  return Math.random().toString(36).substring(2, 8).toUpperCase();
-}
+const getCachedUser = () => {
+  try {
+    const val = localStorage.getItem('candy-nest:user');
+    return val ? JSON.parse(val) : null;
+  } catch {
+    return null;
+  }
+};
+
+const getCachedProfile = () => {
+  try {
+    const val = localStorage.getItem('candy-nest:profile');
+    return val ? JSON.parse(val) : null;
+  } catch {
+    return null;
+  }
+};
+
+const initialUser = getCachedUser();
+const initialProfile = getCachedProfile();
 
 export const useAuthStore = create<AuthState>((set, get) => ({
-  currentUser: null,
-  userProfile: null,
-  loading: true,
+  currentUser: initialUser,
+  userProfile: initialProfile,
+  loading: false, // Start as false to instantly bypass the loading screen if cached or if logged out
   initialized: false,
 
   init: () => {
@@ -64,10 +81,19 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       partnerUnsub = null;
 
       if (user) {
+        // Cache minimal user info to restore instantly on reload
+        const simpleUser = {
+          uid: user.uid,
+          email: user.email,
+          displayName: user.displayName,
+        };
+        localStorage.setItem('candy-nest:user', JSON.stringify(simpleUser));
+
         profileUnsub = onSnapshot(doc(db, 'users', user.uid), (snap) => {
           if (snap.exists()) {
             const profile = snap.data() as UserProfile;
             set({ userProfile: profile });
+            localStorage.setItem('candy-nest:profile', JSON.stringify(profile));
 
             // If linked to a partner, listen to partner's profile for real-time name/avatar sync
             if (profile.partnerEmail && !partnerUnsub) {
@@ -79,13 +105,17 @@ export const useAuthStore = create<AuthState>((set, get) => ({
               partnerUnsub = onSnapshot(q, (partnerSnap) => {
                 if (!partnerSnap.empty) {
                   const partnerData = partnerSnap.docs[0].data() as UserProfile;
-                  set((state) => ({
-                    userProfile: state.userProfile ? {
+                  set((state) => {
+                    const updatedProfile = state.userProfile ? {
                       ...state.userProfile,
                       partnerName: partnerData.displayName,
                       partnerUid: partnerData.uid
-                    } : null
-                  }));
+                    } : null;
+                    if (updatedProfile) {
+                      localStorage.setItem('candy-nest:profile', JSON.stringify(updatedProfile));
+                    }
+                    return { userProfile: updatedProfile };
+                  });
                 }
               });
             }
@@ -93,6 +123,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           set({ loading: false });
         });
       } else {
+        localStorage.removeItem('candy-nest:user');
+        localStorage.removeItem('candy-nest:profile');
         set({ userProfile: null, loading: false });
       }
     });
@@ -122,6 +154,12 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     };
 
     await setDoc(doc(db, 'users', user.uid), profile);
+    localStorage.setItem('candy-nest:user', JSON.stringify({
+      uid: user.uid,
+      email: user.email,
+      displayName: user.displayName || displayName
+    }));
+    localStorage.setItem('candy-nest:profile', JSON.stringify(profile));
     set({ userProfile: profile });
   },
 
@@ -132,6 +170,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   logout: async () => {
     await signOut(auth);
     useDataStore.getState().clearData();
+    localStorage.removeItem('candy-nest:user');
+    localStorage.removeItem('candy-nest:profile');
     set({ currentUser: null, userProfile: null });
   },
 
@@ -139,7 +179,11 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     const { currentUser } = get();
     if (!currentUser) return;
     const snap = await getDoc(doc(db, 'users', currentUser.uid));
-    if (snap.exists()) set({ userProfile: snap.data() as UserProfile });
+    if (snap.exists()) {
+      const profile = snap.data() as UserProfile;
+      localStorage.setItem('candy-nest:profile', JSON.stringify(profile));
+      set({ userProfile: profile });
+    }
   },
 
   linkCouple: async (inviteCode) => {
@@ -213,9 +257,15 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       }
     }
 
-    // Update local state
+    // Update local state and cache
+    const updatedProfile = { ...userProfile, ...data };
+    localStorage.setItem('candy-nest:profile', JSON.stringify(updatedProfile));
     set({
-      userProfile: { ...userProfile, ...data }
+      userProfile: updatedProfile
     });
   }
 }));
+
+function generateInviteCode(): string {
+  return Math.random().toString(36).substring(2, 8).toUpperCase();
+}

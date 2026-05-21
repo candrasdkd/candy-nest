@@ -103,6 +103,47 @@ export default function NoteDetailModal({
     const hasChecklists = totalChecklists > 0;
     const hasCheckedItems = checkedCount > 0;
 
+    interface ContentBlock {
+      type: 'header' | 'group' | 'empty';
+      headerText?: string;
+      lines?: { text: string; originalIndex: number }[];
+    }
+
+    const blocks: ContentBlock[] = [];
+    let currentGroup: { text: string; originalIndex: number }[] = [];
+
+    lines.forEach((line, idx) => {
+      const trimmed = line.trim();
+      
+      // Improved header detection
+      const isMarkdownHeader = trimmed.startsWith('#');
+      const isAllCapsHeader = trimmed.length >= 3 && trimmed === trimmed.toUpperCase() && !trimmed.includes(':') && !trimmed.startsWith('>') && !trimmed.startsWith('-') && !trimmed.startsWith('*') && trimmed !== '';
+      const isColonHeader = trimmed.endsWith(':') && !trimmed.includes(' ') && trimmed.length > 2; // e.g. "Header:"
+      
+      const isHeader = isMarkdownHeader || isAllCapsHeader || isColonHeader;
+
+      if (isHeader) {
+        if (currentGroup.length > 0) {
+          blocks.push({ type: 'group', lines: currentGroup });
+          currentGroup = [];
+        }
+        const headerText = trimmed.replace(/^#+\s*/, '').replace(/:$/, '');
+        blocks.push({ type: 'header', headerText });
+      } else if (trimmed === '') {
+        if (currentGroup.length > 0) {
+          blocks.push({ type: 'group', lines: currentGroup });
+          currentGroup = [];
+        }
+        blocks.push({ type: 'empty' });
+      } else {
+        currentGroup.push({ text: line, originalIndex: idx });
+      }
+    });
+
+    if (currentGroup.length > 0) {
+      blocks.push({ type: 'group', lines: currentGroup });
+    }
+
     return (
       <div className="space-y-4">
         {hasChecklists && (
@@ -131,25 +172,19 @@ export default function NoteDetailModal({
             </button>
           </div>
         )}
-        {lines.map((line, idx) => {
-          const trimmed = line.trim();
-          if (trimmed === '') return <div key={idx} className="h-4" />;
 
-          // Improved header detection
-          const isMarkdownHeader = trimmed.startsWith('#');
-          const isAllCapsHeader = trimmed.length >= 3 && trimmed === trimmed.toUpperCase() && !trimmed.includes(':') && !trimmed.startsWith('>') && !trimmed.startsWith('-') && !trimmed.startsWith('*');
-          const isColonHeader = trimmed.endsWith(':') && !trimmed.includes(' ') && trimmed.length > 2; // e.g. "Header:"
-          
-          const isHeader = isMarkdownHeader || isAllCapsHeader || isColonHeader;
+        {blocks.map((block, blockIdx) => {
+          if (block.type === 'empty') {
+            return <div key={`empty-${blockIdx}`} className="h-4" />;
+          }
 
-          if (isHeader) {
-            const headerText = trimmed.replace(/^#+\s*/, '').replace(/:$/, '');
+          if (block.type === 'header') {
             return (
-              <div key={idx} className="pt-6 pb-2">
+              <div key={`header-${blockIdx}`} className="pt-6 pb-2">
                 <div className="flex items-center gap-3 mb-4">
                   <div className="w-1.5 h-6 rounded-full bg-sage-900" />
                   <h4 className="text-lg font-display font-bold text-sage-900 tracking-tight">
-                    {headerText}
+                    {block.headerText}
                   </h4>
                 </div>
                 <div className="h-px bg-sage-100 w-full" />
@@ -157,119 +192,136 @@ export default function NoteDetailModal({
             );
           }
 
-          const isCheckbox = trimmed.startsWith('>') && !trimmed.startsWith('>>');
-          if (isCheckbox) {
-            const isChecked = trimmed.startsWith('>x');
-            const text = trimmed.replace(/^>x?\s?/, '').trim();
+          if (block.type === 'group' && block.lines) {
             return (
-              <button
-                key={idx}
-                type="button"
-                onClick={() => toggleCheckbox(idx)}
-                className={`w-full text-left flex items-start gap-4 p-4 rounded-2xl transition-all duration-200 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-sage-400 ${
-                  isChecked ? 'bg-sage-50/50 opacity-60' : 'bg-white shadow-sm border border-sage-100 hover:border-sage-200 active:scale-[0.99]'
-                }`}
+              <div 
+                key={`group-${blockIdx}`} 
+                className="bg-white rounded-[2rem] p-5 md:p-6 border border-sage-100 shadow-sm space-y-4"
               >
-                <div className={`mt-0.5 w-6 h-6 shrink-0 rounded-lg border-2 flex items-center justify-center transition-all ${
-                  isChecked ? 'bg-sage-900 border-sage-900 text-white' : 'bg-white border-sage-200'
-                }`}>
-                  {isChecked && <Check className="w-4 h-4" strokeWidth={3} />}
-                </div>
-                <span className={`text-base leading-tight transition-all ${isChecked ? 'text-sage-400 line-through' : 'text-sage-800 font-medium'}`}>
-                  {text}
-                </span>
-              </button>
-            );
-          }
+                {block.lines.map(({ text, originalIndex }) => {
+                  const trimmed = text.trim();
 
-          const isBullet = trimmed.startsWith('- ') || trimmed.startsWith('* ') || trimmed.startsWith('• ');
-          if (isBullet) {
-            const text = trimmed.substring(2).trim();
-            return (
-              <div key={idx} className="flex items-start gap-4 px-2">
-                <div className="mt-2.5 w-2 h-2 rounded-full bg-sage-300 shrink-0" />
-                <span className="text-base text-sage-700 font-medium leading-relaxed">{text}</span>
-              </div>
-            );
-          }
-
-          const isUrl = /^(https?:\/\/[^\s]+)$/.test(trimmed);
-          if (isUrl) {
-            return (
-              <a
-                key={idx}
-                href={trimmed}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-4 p-5 rounded-[2rem] bg-sage-50 border border-sage-100 hover:border-sage-200 transition-all group/link"
-              >
-                <div className="w-12 h-12 rounded-2xl bg-white flex items-center justify-center shadow-sm text-sage-600 group-hover/link:text-sage-900 transition-all duration-300">
-                  <Globe className="w-6 h-6" />
-                </div>
-                <div className="flex flex-col min-w-0 flex-1">
-                  <span className="text-sm font-bold text-sage-900 truncate">
-                    {trimmed.replace(/^https?:\/\/(www\.)?/, '').split('/')[0]}
-                  </span>
-                  <span className="text-xs text-sage-400 truncate">
-                    {trimmed}
-                  </span>
-                </div>
-                <ExternalLink className="w-5 h-5 text-sage-300" />
-              </a>
-            );
-          }
-
-          const colonIndex = line.indexOf(':');
-          if (colonIndex !== -1) {
-            const label = line.substring(0, colonIndex).trim();
-            const value = line.substring(colonIndex + 1).trim();
-            const isPassword = /pass|pwd|sandi|pin/i.test(label);
-            const isVisible = showPasswords[idx];
-
-            return (
-              <div key={idx} className="flex flex-col gap-1 bg-white p-5 rounded-[1.5rem] border border-sage-100 shadow-sm hover:shadow-md transition-all">
-                <div className="flex items-center justify-between mb-1">
-                  <span className="text-[10px] font-black text-sage-400 uppercase tracking-widest">{label}</span>
-                  <div className="flex items-center gap-1.5">
-                    <button
-                      type="button"
-                      onClick={() => handleCopyValue(value, idx)}
-                      className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase transition-all flex items-center gap-1 ${
-                        copiedValueIdx === idx 
-                          ? 'bg-emerald-50 text-emerald-600' 
-                          : 'bg-sage-50 text-sage-600 hover:bg-sage-100'
-                      }`}
-                    >
-                      {copiedValueIdx === idx ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
-                      {copiedValueIdx === idx ? 'Tersalin' : 'Salin'}
-                    </button>
-                    {isPassword && (
+                  const isCheckbox = trimmed.startsWith('>') && !trimmed.startsWith('>>');
+                  if (isCheckbox) {
+                    const isChecked = trimmed.startsWith('>x');
+                    const labelText = trimmed.replace(/^>x?\s?/, '').trim();
+                    return (
                       <button
+                        key={originalIndex}
                         type="button"
-                        onClick={() => setShowPasswords(prev => ({ ...prev, [idx]: !prev[idx] }))}
-                        className="px-3 py-1.5 rounded-lg bg-sage-50 text-[10px] font-bold text-sage-600 uppercase hover:bg-sage-100 transition-colors"
+                        onClick={() => toggleCheckbox(originalIndex)}
+                        className={`w-full text-left flex items-start gap-4 p-4 rounded-2xl transition-all duration-200 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-sage-400 ${
+                          isChecked 
+                            ? 'bg-sage-50/40 opacity-60' 
+                            : 'bg-sage-50/50 hover:bg-sage-50 hover:border-sage-200 border border-sage-100/50 active:scale-[0.99]'
+                        }`}
                       >
-                        {isVisible ? 'Sembunyi' : 'Lihat'}
+                        <div className={`mt-0.5 w-6 h-6 shrink-0 rounded-lg border-2 flex items-center justify-center transition-all ${
+                          isChecked ? 'bg-sage-900 border-sage-900 text-white' : 'bg-white border-sage-200'
+                        }`}>
+                          {isChecked && <Check className="w-4 h-4" strokeWidth={3} />}
+                        </div>
+                        <span className={`text-base leading-tight transition-all ${isChecked ? 'text-sage-400 line-through' : 'text-sage-800 font-medium'}`}>
+                          {labelText}
+                        </span>
                       </button>
-                    )}
-                  </div>
-                </div>
-                <div className="text-lg font-bold text-sage-900 break-words pr-2">
-                  {isPassword && !isVisible ? (
-                    <span className="tracking-[0.4em] font-black text-sage-300">••••••••</span>
-                  ) : (
-                    value
-                  )}
-                </div>
+                    );
+                  }
+
+                  const isBullet = trimmed.startsWith('- ') || trimmed.startsWith('* ') || trimmed.startsWith('• ');
+                  if (isBullet) {
+                    const bulletText = trimmed.substring(2).trim();
+                    return (
+                      <div key={originalIndex} className="flex items-start gap-4 px-2">
+                        <div className="mt-2.5 w-2 h-2 rounded-full bg-sage-300 shrink-0" />
+                        <span className="text-base text-sage-700 font-medium leading-relaxed">{bulletText}</span>
+                      </div>
+                    );
+                  }
+
+                  const isUrl = /^(https?:\/\/[^\s]+)$/.test(trimmed);
+                  if (isUrl) {
+                    return (
+                      <a
+                        key={originalIndex}
+                        href={trimmed}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-4 p-4 rounded-[1.5rem] bg-sage-50 border border-sage-100 hover:border-sage-200 hover:bg-sage-100/30 transition-all group/link"
+                      >
+                        <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center shadow-sm text-sage-600 group-hover/link:text-sage-900 transition-all duration-300 shrink-0">
+                          <Globe className="w-5 h-5" />
+                        </div>
+                        <div className="flex flex-col min-w-0 flex-1">
+                          <span className="text-xs font-bold text-sage-900 truncate">
+                            {trimmed.replace(/^https?:\/\/(www\.)?/, '').split('/')[0]}
+                          </span>
+                          <span className="text-[10px] text-sage-400 truncate">
+                            {trimmed}
+                          </span>
+                        </div>
+                        <ExternalLink className="w-4 h-4 text-sage-300 shrink-0" />
+                      </a>
+                    );
+                  }
+
+                  const colonIndex = text.indexOf(':');
+                  if (colonIndex !== -1) {
+                    const label = text.substring(0, colonIndex).trim();
+                    const value = text.substring(colonIndex + 1).trim();
+                    const isPassword = /pass|pwd|sandi|pin/i.test(label);
+                    const isVisible = showPasswords[originalIndex];
+
+                    return (
+                      <div key={originalIndex} className="flex flex-col gap-1 bg-sage-50/30 p-4 rounded-[1.2rem] border border-sage-100/70 shadow-sm hover:shadow-md transition-all">
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="text-[9px] font-black text-sage-400 uppercase tracking-widest">{label}</span>
+                          <div className="flex items-center gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() => handleCopyValue(value, originalIndex)}
+                              className={`px-2.5 py-1.5 rounded-lg text-[9px] font-bold uppercase transition-all flex items-center gap-1 ${
+                                copiedValueIdx === originalIndex 
+                                  ? 'bg-emerald-50 text-emerald-600' 
+                                  : 'bg-white text-sage-600 border border-sage-100 hover:bg-sage-50'
+                              }`}
+                            >
+                              {copiedValueIdx === originalIndex ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
+                              {copiedValueIdx === originalIndex ? 'Tersalin' : 'Salin'}
+                            </button>
+                            {isPassword && (
+                              <button
+                                type="button"
+                                onClick={() => setShowPasswords(prev => ({ ...prev, [originalIndex]: !prev[originalIndex] }))}
+                                className="px-2.5 py-1.5 rounded-lg bg-white border border-sage-100 text-[9px] font-bold text-sage-600 uppercase hover:bg-sage-50 transition-colors"
+                              >
+                                {isVisible ? 'Sembunyi' : 'Lihat'}
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                        <div className="text-base font-bold text-sage-900 break-words pr-2">
+                          {isPassword && !isVisible ? (
+                            <span className="tracking-[0.4em] font-black text-sage-300">••••••••</span>
+                          ) : (
+                            value
+                          )}
+                        </div>
+                      </div>
+                    );
+                  }
+
+                  return (
+                    <p key={originalIndex} className="text-sage-600 text-base leading-relaxed break-words font-medium px-2">
+                      {text}
+                    </p>
+                  );
+                })}
               </div>
             );
           }
 
-          return (
-            <p key={idx} className="text-sage-600 text-base leading-relaxed break-words font-medium px-2">
-              {line}
-            </p>
-          );
+          return null;
         })}
       </div>
     );

@@ -18,7 +18,13 @@ import { useDataStore } from '../store/useDataStore';
 import { useAuthStore } from '../store/useAuthStore';
 import { formatRupiah, parseRupiah, MonthlyAllocation } from '../types';
 
-export default function MonthlyAllocationTable({ hideActions = false }: { hideActions?: boolean }) {
+export default function MonthlyAllocationTable({ 
+  hideActions = false,
+  hideBalance = false 
+}: { 
+  hideActions?: boolean;
+  hideBalance?: boolean;
+}) {
   const { userProfile } = useAuthStore();
   const { 
     allocations, 
@@ -249,7 +255,7 @@ export default function MonthlyAllocationTable({ hideActions = false }: { hideAc
                       ) : (
                         <div className="flex flex-col items-end" onClick={() => !hideActions && isEditing && startEdit(item)}>
                           <span className={`text-sm font-mono font-bold ${displayAmountA > 0 ? 'text-sage-700' : 'text-sage-200'}`}>
-                            {displayAmountA > 0 ? formatRupiah(displayAmountA) : 'Rp 0'}
+                            {hideBalance ? 'Rp ••••••' : (displayAmountA > 0 ? formatRupiah(displayAmountA) : 'Rp 0')}
                           </span>
                         </div>
                       )}
@@ -268,7 +274,7 @@ export default function MonthlyAllocationTable({ hideActions = false }: { hideAc
                       ) : (
                         <div className="flex flex-col items-end" onClick={() => !hideActions && isEditing && startEdit(item)}>
                           <span className={`text-sm font-mono font-bold ${displayAmountB > 0 ? 'text-rose-600' : 'text-rose-200'}`}>
-                            {displayAmountB > 0 ? formatRupiah(displayAmountB) : 'Rp 0'}
+                            {hideBalance ? 'Rp ••••••' : (displayAmountB > 0 ? formatRupiah(displayAmountB) : 'Rp 0')}
                           </span>
                         </div>
                       )}
@@ -328,7 +334,7 @@ export default function MonthlyAllocationTable({ hideActions = false }: { hideAc
           <div className="p-6 bg-sage-50 rounded-[2rem] border border-sage-100 flex items-center justify-between group/total transition-all hover:bg-sage-100/50">
             <div>
               <p className="text-[10px] font-bold text-sage-400 uppercase tracking-widest mb-1">Total {userProfile?.displayName || 'Candra'}</p>
-              <p className="text-xl font-mono font-bold text-sage-900">{formatRupiah(totalA)}</p>
+              <p className="text-xl font-mono font-bold text-sage-900">{hideBalance ? 'Rp ••••••' : formatRupiah(totalA)}</p>
             </div>
             <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center text-sage-500 shadow-sm group-hover/total:scale-110 transition-transform">
               <Wallet className="w-5 h-5" />
@@ -338,7 +344,7 @@ export default function MonthlyAllocationTable({ hideActions = false }: { hideAc
           <div className="p-6 bg-rose-50 rounded-[2rem] border border-rose-100 flex items-center justify-between group/total transition-all hover:bg-rose-100/50">
             <div>
               <p className="text-[10px] font-bold text-rose-400 uppercase tracking-widest mb-1">Total {userProfile?.partnerName || 'Diny'}</p>
-              <p className="text-xl font-mono font-bold text-sage-900">{formatRupiah(totalB)}</p>
+              <p className="text-xl font-mono font-bold text-sage-900">{hideBalance ? 'Rp ••••••' : formatRupiah(totalB)}</p>
             </div>
             <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center text-rose-400 shadow-sm group-hover/total:scale-110 transition-transform">
               <ArrowRightLeft className="w-5 h-5" />
@@ -348,7 +354,7 @@ export default function MonthlyAllocationTable({ hideActions = false }: { hideAc
           <div className="p-6 bg-gradient-to-br from-sage-800 to-sage-950 rounded-[2rem] shadow-2xl shadow-sage-900/20 flex items-center justify-between group/total transition-all hover:scale-[1.02]">
             <div>
               <p className="text-[10px] font-bold text-white/50 uppercase tracking-widest mb-1">Grand Total</p>
-              <p className="text-2xl font-mono font-bold text-white">{formatRupiah(grandTotal)}</p>
+              <p className="text-2xl font-mono font-bold text-white">{hideBalance ? 'Rp ••••••' : formatRupiah(grandTotal)}</p>
             </div>
             <div className="w-12 h-12 bg-white/10 backdrop-blur-xl border border-white/10 rounded-2xl flex items-center justify-center text-white shadow-inner group-hover/total:rotate-12 transition-transform">
               <Calculator className="w-6 h-6" />

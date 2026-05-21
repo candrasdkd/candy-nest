@@ -4,6 +4,7 @@ import {
   Plus, Wallet, ArrowDownCircle, ArrowUpCircle,
   Shuffle, Trash2, Pencil, X, Loader2, AlertTriangle,
   History, ChevronRight, Sparkles, Target, Calendar, FileText,
+  Eye, EyeOff,
 } from 'lucide-react';
 import { useSavingsPage } from '../hooks/useSavingsPage';
 import { useSavingsStore } from '../store/useSavingsStore';
@@ -83,8 +84,18 @@ export default function SavingsPots() {
           <div className="absolute -right-16 -top-16 w-64 h-64 bg-white/10 rounded-full blur-[80px]" />
           <div className="absolute -left-8 -bottom-8 w-40 h-40 bg-rose-400/20 rounded-full blur-[60px]" />
           <div className="relative z-10">
-            <p className="text-[10px] font-bold text-white/50 uppercase tracking-[0.25em] mb-1">Total Seluruh Pos</p>
-            <p className="font-mono text-4xl md:text-5xl font-black tracking-tighter">{formatRupiah(s.totalBalance)}</p>
+            <div className="flex items-center justify-between gap-4 w-full mb-1">
+              <p className="text-[10px] font-bold text-white/50 uppercase tracking-[0.25em]">Total Seluruh Pos</p>
+              <button
+                type="button"
+                onClick={() => s.setHideBalance(!s.hideBalance)}
+                className="w-10 h-10 flex items-center justify-center rounded-xl bg-white/10 hover:bg-white/20 transition-all border border-white/10 active:scale-95 text-white/80 hover:text-white"
+                title={s.hideBalance ? "Tampilkan Saldo" : "Sembunyikan Saldo"}
+              >
+                {s.hideBalance ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+              </button>
+            </div>
+            <p className="font-mono text-4xl md:text-5xl font-black tracking-tighter">{s.hideBalance ? 'Rp ••••••' : formatRupiah(s.totalBalance)}</p>
             <p className="text-white/40 text-xs font-medium mt-2">{s.pots.length} pos aktif</p>
           </div>
         </motion.div>

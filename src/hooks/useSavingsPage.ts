@@ -20,6 +20,7 @@ export function useSavingsPage() {
   const [modal, setModal] = useState<ModalMode>({ type: 'none' });
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
+  const [hideBalance, setHideBalance] = useState(true);
 
   // Form state – pot upsert
   const [potName, setPotName] = useState('');
@@ -279,6 +280,8 @@ export function useSavingsPage() {
     // allocation form
     allocations, setAllocations,
     allocNote, setAllocNote,
+    hideBalance,
+    setHideBalance,
     // helpers
     formatAmount,
     // handlers

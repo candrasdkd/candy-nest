@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import {
   Plus,
   ArrowRight,
@@ -7,7 +7,9 @@ import {
   Sparkles,
   Calendar,
   History,
-  Share2
+  Share2,
+  Eye,
+  EyeOff
 } from 'lucide-react';
 import { motion, AnimatePresence, Variants } from 'framer-motion';
 import { format } from 'date-fns';
@@ -86,39 +88,10 @@ export default function Dashboard() {
     allTimeBalance,
     pieData,
     recentTx,
+    hideBalance,
+    setHideBalance,
+    handleShareStats,
   } = useDashboardStats(transactions, now);
-
-  // Hapus badge notifikasi saat user membuka Dashboard
-  useEffect(() => {
-    if ('clearAppBadge' in navigator) {
-      (navigator as any).clearAppBadge().catch(() => {});
-    }
-  }, []);
-
-  const handleShareStats = async () => {
-    const text = `📊 Laporan Keuangan CandyNest (${format(now, 'MMMM yyyy', { locale: id })})\n\n` +
-      `💰 Pemasukan: ${formatRupiah(totalIncome)}\n` +
-      `💸 Pengeluaran: ${formatRupiah(totalExpense)}\n` +
-      `🏦 Saldo Bulan Ini: ${formatRupiah(balance)}\n` +
-      `✨ Total Tabungan: ${formatRupiah(allTimeBalance)}\n\n` +
-      `Ayo tetap hemat dan raih impian keluarga! ❤️`;
-
-    if (navigator.share) {
-      try {
-        await navigator.share({
-          title: 'Laporan CandyNest',
-          text: text,
-          url: window.location.origin,
-        });
-      } catch (err) {
-        console.log('Share failed', err);
-      }
-    } else {
-      // Fallback: Copy to clipboard
-      navigator.clipboard.writeText(text);
-      alert('Laporan disalin ke clipboard!');
-    }
-  };
 
   if (!userProfile?.coupleId) {
     return (
@@ -197,26 +170,36 @@ export default function Dashboard() {
 
           <div className="flex flex-col justify-between h-full relative z-10">
             <div className="space-y-6">
-              <div className="flex items-center gap-4">
-                <div className="w-14 h-14 rounded-2xl bg-white/20 flex items-center justify-center backdrop-blur-xl border border-white/20 shadow-inner group-hover:scale-110 transition-transform duration-500">
-                  <div className="w-8 h-8 text-white">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M20 12V8H6a2 2 0 0 1-2-2c0-1.1.9-2 2-2h12v4" /><path d="M4 6v12c0 1.1.9 2 2 2h14v-4" /><path d="M18 12a2 2 0 0 0-2 2c0 1.1.9 2 2 2h4v-4h-4z" /></svg>
+              <div className="flex items-center justify-between gap-4 w-full">
+                <div className="flex items-center gap-4">
+                  <div className="w-14 h-14 rounded-2xl bg-white/20 flex items-center justify-center backdrop-blur-xl border border-white/20 shadow-inner group-hover:scale-110 transition-transform duration-500">
+                    <div className="w-8 h-8 text-white">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M20 12V8H6a2 2 0 0 1-2-2c0-1.1.9-2 2-2h12v4" /><path d="M4 6v12c0 1.1.9 2 2 2h14v-4" /><path d="M18 12a2 2 0 0 0-2 2c0 1.1.9 2 2 2h4v-4h-4z" /></svg>
+                    </div>
+                  </div>
+                  <div>
+                    <span className="text-[10px] font-bold text-white/60 uppercase tracking-[0.2em] block mb-1">Total Saldo (Tabungan)</span>
+                    <span className="text-xs font-medium text-white/80">Akumulasi Seluruh Waktu</span>
                   </div>
                 </div>
-                <div>
-                  <span className="text-[10px] font-bold text-white/60 uppercase tracking-[0.2em] block mb-1">Total Saldo (Tabungan)</span>
-                  <span className="text-xs font-medium text-white/80">Akumulasi Seluruh Waktu</span>
-                </div>
+                <button
+                  type="button"
+                  onClick={() => setHideBalance(!hideBalance)}
+                  className="w-10 h-10 flex items-center justify-center rounded-xl bg-white/10 hover:bg-white/20 transition-all border border-white/10 active:scale-95 text-white/80 hover:text-white"
+                  title={hideBalance ? "Tampilkan Saldo" : "Sembunyikan Saldo"}
+                >
+                  {hideBalance ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                </button>
               </div>
 
               <div className="space-y-3">
                 <div className="font-mono text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold tracking-tighter drop-shadow-md leading-none">
-                  {formatRupiah(allTimeBalance)}
+                  {hideBalance ? 'Rp ••••••' : formatRupiah(allTimeBalance)}
                 </div>
                 {balance !== allTimeBalance && (
                   <div className="flex items-center gap-2 text-white/50 text-[10px] font-bold uppercase tracking-widest bg-white/10 w-fit px-4 py-1.5 rounded-full border border-white/10">
                     <Sparkles className="w-3 h-3" />
-                    <span>Selisih bulan ini: {balance >= 0 ? '+' : ''}{formatRupiah(balance)}</span>
+                    <span>Selisih bulan ini: {balance >= 0 ? '+' : ''}{hideBalance ? 'Rp ••••••' : formatRupiah(balance)}</span>
                   </div>
                 )}
               </div>
@@ -229,7 +212,7 @@ export default function Dashboard() {
                   <span className="text-[9px] md:text-[10px] font-bold uppercase tracking-widest text-white/50">Income</span>
                 </div>
                 <div className="font-mono text-sm md:text-2xl font-bold text-emerald-300">
-                  {formatRupiah(totalIncome)}
+                  {hideBalance ? 'Rp ••••••' : formatRupiah(totalIncome)}
                 </div>
               </div>
               <div className="flex md:flex-col items-center md:items-start justify-between md:justify-start gap-2 md:space-y-2 md:border-l md:border-white/10 md:pl-8">
@@ -238,7 +221,7 @@ export default function Dashboard() {
                   <span className="text-[9px] md:text-[10px] font-bold uppercase tracking-widest text-white/50">Expense</span>
                 </div>
                 <div className="font-mono text-sm md:text-2xl font-bold text-rose-300">
-                  {formatRupiah(totalExpense)}
+                  {hideBalance ? 'Rp ••••••' : formatRupiah(totalExpense)}
                 </div>
               </div>
             </div>
@@ -248,7 +231,7 @@ export default function Dashboard() {
 
       {/* Monthly Allocation Plan */}
       <motion.div variants={itemVariants}>
-        <MonthlyAllocationTable hideActions={true} />
+        <MonthlyAllocationTable hideActions={true} hideBalance={hideBalance} />
       </motion.div>
 
       {/* Charts & Trends Row */}

@@ -1,9 +1,17 @@
-import { useMemo } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { startOfMonth, endOfMonth, isWithinInterval, parseISO, format } from 'date-fns';
 import { id } from 'date-fns/locale';
-import { Transaction, getCategoryInfo } from '../types';
+import { Transaction, getCategoryInfo, formatRupiah } from '../types';
 
 export function useDashboardStats(transactions: Transaction[], date: Date = new Date()) {
+  const [hideBalance, setHideBalance] = useState(true);
+
+  // Hapus badge notifikasi saat user membuka Dashboard
+  useEffect(() => {
+    if ('clearAppBadge' in navigator) {
+      (navigator as any).clearAppBadge().catch(() => {});
+    }
+  }, []);
 
   // 1. Filter transaksi bulan ini
   const thisMonthTx = useMemo(() => {
@@ -65,6 +73,32 @@ export function useDashboardStats(transactions: Transaction[], date: Date = new 
   // 5. Transaksi terbaru (5 transaksi)
   const recentTx = useMemo(() => transactions.slice(0, 5), [transactions]);
 
+  // 6. Fungsi untuk membagikan laporan
+  const handleShareStats = async () => {
+    const text = `📊 Laporan Keuangan CandyNest (${format(date, 'MMMM yyyy', { locale: id })})\n\n` +
+      `💰 Pemasukan: ${formatRupiah(totalIncome)}\n` +
+      `💸 Pengeluaran: ${formatRupiah(totalExpense)}\n` +
+      `🏦 Saldo Bulan Ini: ${formatRupiah(balance)}\n` +
+      `✨ Total Tabungan: ${formatRupiah(allTimeBalance)}\n\n` +
+      `Ayo tetap hemat dan raih impian keluarga! ❤️`;
+
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: 'Laporan CandyNest',
+          text: text,
+          url: window.location.origin,
+        });
+      } catch (err) {
+        console.log('Share failed', err);
+      }
+    } else {
+      // Fallback: Copy to clipboard
+      navigator.clipboard.writeText(text);
+      alert('Laporan disalin ke clipboard!');
+    }
+  };
+
   return {
     thisMonthTx,
     totalIncome,
@@ -73,5 +107,8 @@ export function useDashboardStats(transactions: Transaction[], date: Date = new 
     allTimeBalance,
     pieData,
     recentTx,
+    hideBalance,
+    setHideBalance,
+    handleShareStats,
   };
 }

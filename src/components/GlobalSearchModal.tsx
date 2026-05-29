@@ -327,7 +327,7 @@ export default function GlobalSearchModal({ isOpen, onClose }: GlobalSearchModal
                   setSelectedIndex(0);
                 }}
                 placeholder="Cari apa saja di CandyNest..."
-                className="flex-1 bg-transparent border-none text-sage-900 placeholder-sage-400 focus:outline-none focus:ring-0 text-sm font-medium tracking-tight"
+                className="flex-1 bg-transparent border-none text-sage-900 placeholder-sage-400 focus:outline-none focus:ring-0 text-base md:text-sm font-medium tracking-tight"
               />
               {query && (
                 <button

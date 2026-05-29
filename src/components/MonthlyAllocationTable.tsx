@@ -233,7 +233,7 @@ export default function MonthlyAllocationTable({
                           value={editValues.name}
                           onChange={(e) => setEditValues({ ...editValues, name: e.target.value })}
                           onBlur={() => handleUpdate(item.id)}
-                          className="bg-white border-2 border-sage-100 rounded-xl px-4 py-2 text-sm w-full focus:outline-none focus:border-sage-500 shadow-inner"
+                          className="bg-white border-2 border-sage-100 rounded-xl px-4 py-2 text-base md:text-sm w-full focus:outline-none focus:border-sage-500 shadow-inner"
                         />
                       ) : (
                         <span className="text-sm font-bold text-sage-800 cursor-pointer" onClick={() => !hideActions && isEditing && startEdit(item)}>
@@ -250,7 +250,7 @@ export default function MonthlyAllocationTable({
                           value={formatRupiah(editValues.amountA)}
                           onChange={(e) => setEditValues({ ...editValues, amountA: parseRupiah(e.target.value) })}
                           onBlur={() => handleUpdate(item.id)}
-                          className="bg-white border-2 border-sage-100 rounded-xl px-4 py-2 text-sm w-full text-right focus:outline-none focus:border-sage-500 shadow-inner"
+                          className="bg-white border-2 border-sage-100 rounded-xl px-4 py-2 text-base md:text-sm w-full text-right focus:outline-none focus:border-sage-500 shadow-inner"
                         />
                       ) : (
                         <div className="flex flex-col items-end" onClick={() => !hideActions && isEditing && startEdit(item)}>
@@ -269,7 +269,7 @@ export default function MonthlyAllocationTable({
                           value={formatRupiah(editValues.amountB)}
                           onChange={(e) => setEditValues({ ...editValues, amountB: parseRupiah(e.target.value) })}
                           onBlur={() => handleUpdate(item.id)}
-                          className="bg-white border-2 border-sage-100 rounded-xl px-4 py-2 text-sm w-full text-right focus:outline-none focus:border-sage-500 shadow-inner"
+                          className="bg-white border-2 border-sage-100 rounded-xl px-4 py-2 text-base md:text-sm w-full text-right focus:outline-none focus:border-sage-500 shadow-inner"
                         />
                       ) : (
                         <div className="flex flex-col items-end" onClick={() => !hideActions && isEditing && startEdit(item)}>
@@ -296,14 +296,14 @@ export default function MonthlyAllocationTable({
                   placeholder="Keterangan baru..."
                   value={newItem.name}
                   onChange={(e) => setNewItem({ ...newItem, name: e.target.value })}
-                  className="bg-white border-2 border-transparent rounded-xl px-4 py-2.5 text-sm w-full focus:outline-none focus:border-sage-300 shadow-sm transition-all"
+                  className="bg-white border-2 border-transparent rounded-xl px-4 py-2.5 text-base md:text-sm w-full focus:outline-none focus:border-sage-300 shadow-sm transition-all"
                 />
                 <input
                   type="text"
                   placeholder="Rp 0"
                   value={formatRupiah(newItem.amountA)}
                   onChange={(e) => setNewItem({ ...newItem, amountA: parseRupiah(e.target.value) })}
-                  className="bg-white border-2 border-transparent rounded-xl px-4 py-2.5 text-sm w-full text-right focus:outline-none focus:border-sage-300 shadow-sm transition-all font-mono"
+                  className="bg-white border-2 border-transparent rounded-xl px-4 py-2.5 text-base md:text-sm w-full text-right focus:outline-none focus:border-sage-300 shadow-sm transition-all font-mono"
                 />
                 <div className="flex items-center gap-4">
                   <input
@@ -311,7 +311,7 @@ export default function MonthlyAllocationTable({
                     placeholder="Rp 0"
                     value={formatRupiah(newItem.amountB)}
                     onChange={(e) => setNewItem({ ...newItem, amountB: parseRupiah(e.target.value) })}
-                    className="bg-white border-2 border-transparent rounded-xl px-4 py-2.5 text-sm w-full text-right focus:outline-none focus:border-sage-300 shadow-sm transition-all font-mono"
+                    className="bg-white border-2 border-transparent rounded-xl px-4 py-2.5 text-base md:text-sm w-full text-right focus:outline-none focus:border-sage-300 shadow-sm transition-all font-mono"
                   />
                   <button
                     onClick={handleAdd}

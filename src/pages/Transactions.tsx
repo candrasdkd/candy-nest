@@ -126,7 +126,7 @@ export default function Transactions() {
               value={search}
               onChange={e => setSearch(e.target.value)}
               placeholder="Cari deskripsi atau kategori..."
-              className="w-full pl-12 pr-4 py-4 bg-sage-50/50 border border-sage-100 rounded-[1.5rem] text-sage-900 focus:outline-none focus:ring-2 focus:ring-sage-500/20 focus:border-sage-500/30 transition-all text-sm font-medium"
+              className="w-full pl-12 pr-4 py-4 bg-sage-50/50 border border-sage-100 rounded-[1.5rem] text-sage-900 focus:outline-none focus:ring-2 focus:ring-sage-500/20 focus:border-sage-500/30 transition-all text-base md:text-sm font-medium"
             />
             {search && (
               <button

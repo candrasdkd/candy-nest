@@ -147,7 +147,7 @@ export default function Register() {
                           placeholder="nama@email.com"
                           required
                           disabled={loading}
-                          className="w-full pl-12 pr-4 py-4 bg-white/5 border border-white/10 rounded-2xl text-cream-50 placeholder:text-sage-600 focus:outline-none focus:ring-2 focus:ring-sage-500/50 focus:border-sage-500/50 transition-all font-medium disabled:opacity-50"
+                          className="w-full pl-12 pr-4 py-4 bg-white/5 border border-white/10 rounded-2xl text-cream-50 placeholder:text-sage-600 focus:outline-none focus:ring-2 focus:ring-sage-500/50 focus:border-sage-500/50 transition-all text-base md:text-sm font-medium disabled:opacity-50"
                         />
                       </div>
                     </div>
@@ -164,7 +164,7 @@ export default function Register() {
                           required
                           minLength={6}
                           disabled={loading}
-                          className="w-full pl-12 pr-4 py-4 bg-white/5 border border-white/10 rounded-2xl text-cream-50 placeholder:text-sage-600 focus:outline-none focus:ring-2 focus:ring-sage-500/50 focus:border-sage-500/50 transition-all font-medium disabled:opacity-50"
+                          className="w-full pl-12 pr-4 py-4 bg-white/5 border border-white/10 rounded-2xl text-cream-50 placeholder:text-sage-600 focus:outline-none focus:ring-2 focus:ring-sage-500/50 focus:border-sage-500/50 transition-all text-base md:text-sm font-medium disabled:opacity-50"
                         />
                       </div>
                     </div>
@@ -189,7 +189,7 @@ export default function Register() {
                           required
                           autoFocus
                           disabled={loading}
-                          className="w-full pl-12 pr-4 py-4 bg-white/5 border border-white/10 rounded-2xl text-cream-50 placeholder:text-sage-600 focus:outline-none focus:ring-2 focus:ring-sage-500/50 focus:border-sage-500/50 transition-all font-medium disabled:opacity-50"
+                          className="w-full pl-12 pr-4 py-4 bg-white/5 border border-white/10 rounded-2xl text-cream-50 placeholder:text-sage-600 focus:outline-none focus:ring-2 focus:ring-sage-500/50 focus:border-sage-500/50 transition-all text-base md:text-sm font-medium disabled:opacity-50"
                         />
                       </div>
                     </div>

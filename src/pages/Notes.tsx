@@ -246,7 +246,7 @@ export default function Notes() {
               placeholder="Cari catatan..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-10 pr-4 py-2.5 bg-transparent border-none focus:ring-0 text-sm font-medium placeholder:text-sage-300"
+              className="w-full pl-10 pr-4 py-2.5 bg-transparent border-none focus:ring-0 text-base md:text-sm font-medium placeholder:text-sage-300"
             />
           </div>
         </div>
@@ -403,7 +403,7 @@ export default function Notes() {
                       placeholder="Contoh: Daftar Belanja"
                       value={formData.title}
                       onChange={e => setFormData({ ...formData, title: e.target.value })}
-                      className="w-full px-6 py-4 rounded-2xl bg-sage-50 border-none focus:ring-2 focus:ring-sage-900/5 transition-all text-sage-900 font-bold placeholder:font-medium"
+                      className="w-full px-6 py-4 rounded-2xl bg-sage-50 border-none focus:ring-2 focus:ring-sage-900/5 transition-all text-sage-900 font-bold placeholder:font-medium text-base md:text-sm"
                     />
                   </div>
 
@@ -415,7 +415,7 @@ export default function Notes() {
                       value={formData.content}
                       onChange={e => setFormData({ ...formData, content: e.target.value })}
                       rows={6}
-                      className="w-full px-6 py-4 rounded-2xl bg-sage-50 border-none focus:ring-2 focus:ring-sage-900/5 transition-all text-sage-900 leading-relaxed resize-none"
+                      className="w-full px-6 py-4 rounded-2xl bg-sage-50 border-none focus:ring-2 focus:ring-sage-900/5 transition-all text-sage-900 leading-relaxed resize-none text-base md:text-sm"
                     />
                   </div>
 

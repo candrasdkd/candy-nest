@@ -31,7 +31,7 @@
 
 @layer components {
   .input-field {
-    @apply w-full px-4 py-3 bg-sage-50 border border-sage-100 rounded-xl text-sage-900 font-bold text-sm focus:outline-none focus:ring-2 focus:ring-sage-400/20 transition-all;
+    @apply w-full px-4 py-3 bg-sage-50 border border-sage-100 rounded-xl text-sage-900 font-bold text-base md:text-sm focus:outline-none focus:ring-2 focus:ring-sage-400/20 transition-all;
   }
   .label-xs {
     @apply block text-[9px] font-bold text-sage-400 uppercase tracking-widest;

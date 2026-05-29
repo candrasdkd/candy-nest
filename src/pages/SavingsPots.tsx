@@ -362,7 +362,7 @@ export default function SavingsPots() {
                         value={s.allocations[pot.id] || ''}
                         onChange={e => s.setAllocations(prev => ({ ...prev, [pot.id]: s.formatAmount(e.target.value) }))}
                         inputMode="numeric" placeholder="0"
-                        className="w-full pl-8 pr-3 py-2 bg-white border border-sage-200 rounded-xl text-sage-900 font-bold text-sm focus:outline-none focus:ring-2 focus:ring-sage-400/20 text-right"
+                        className="w-full pl-8 pr-3 py-2 bg-white border border-sage-200 rounded-xl text-sage-900 font-bold text-base md:text-sm focus:outline-none focus:ring-2 focus:ring-sage-400/20 text-right"
                       />
                     </div>
                   </div>

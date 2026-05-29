@@ -188,7 +188,7 @@ export default function DocumentUploadModal({ onClose }: { onClose: () => void }
                     <label className="text-[9px] font-bold text-sage-400 uppercase tracking-widest block">Nama Dokumen (Opsional)</label>
                   </div>
                   <input type="text" value={customName} onChange={e => setCustomName(e.target.value)} placeholder={`${CATEGORY_INFO[category].label} — ${new Date().toLocaleDateString('id-ID')}`}
-                    className="w-full px-5 py-4 bg-sage-50 border border-sage-100 rounded-2xl text-sage-900 focus:outline-none transition-all font-bold text-sm" />
+                    className="w-full px-5 py-4 bg-sage-50 border border-sage-100 rounded-2xl text-sage-900 focus:outline-none transition-all font-bold text-base md:text-sm" />
                 </div>
 
                 <div className="space-y-4">
@@ -311,7 +311,7 @@ export default function DocumentUploadModal({ onClose }: { onClose: () => void }
                             onChange={e => {
                               const n = [...fields]; n[i].value = e.target.value; setFields(n);
                             }}
-                            className="w-full px-5 py-4 bg-sage-50 border border-sage-100 rounded-2xl text-sage-900 font-bold text-sm focus:outline-none focus:ring-2 focus:ring-sage-900/5 focus:bg-white focus:border-sage-300 transition-all"
+                            className="w-full px-5 py-4 bg-sage-50 border border-sage-100 rounded-2xl text-sage-900 font-bold text-base md:text-sm focus:outline-none focus:ring-2 focus:ring-sage-900/5 focus:bg-white focus:border-sage-300 transition-all"
                           />
                         </div>
                       ))}

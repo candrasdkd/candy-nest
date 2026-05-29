@@ -196,7 +196,7 @@ export default function TransactionModal({ onClose, transactionToEdit }: Props) 
                   <Type className="w-3 h-3" /> Keterangan
                 </label>
                 <input type="text" value={description} disabled={loading} onChange={e => setDescription(e.target.value)} placeholder="Misal: Makan malam"
-                  className="w-full px-5 py-3.5 bg-sage-50 border border-sage-100 rounded-xl text-sage-900 focus:outline-none focus:ring-2 focus:ring-sage-500/10 transition-all font-bold text-sm"
+                  className="w-full px-5 py-3.5 bg-sage-50 border border-sage-100 rounded-xl text-sage-900 focus:outline-none focus:ring-2 focus:ring-sage-500/10 transition-all font-bold text-base md:text-sm"
                 />
               </div>
               <div className="space-y-1.5">
@@ -204,7 +204,7 @@ export default function TransactionModal({ onClose, transactionToEdit }: Props) 
                   <Calendar className="w-3 h-3" /> Tanggal
                 </label>
                 <input type="date" value={date} disabled={loading} onChange={e => setDate(e.target.value)} required
-                  className="w-full px-5 py-3.5 bg-sage-50 border border-sage-100 rounded-xl text-sage-900 focus:outline-none transition-all font-bold cursor-pointer text-sm"
+                  className="w-full px-5 py-3.5 bg-sage-50 border border-sage-100 rounded-xl text-sage-900 focus:outline-none transition-all font-bold cursor-pointer text-base md:text-sm"
                 />
               </div>
 
@@ -217,7 +217,7 @@ export default function TransactionModal({ onClose, transactionToEdit }: Props) 
                     value={selectedPotId}
                     disabled={loading}
                     onChange={(e) => setSelectedPotId(e.target.value)}
-                    className="w-full px-4 py-3.5 bg-sage-50 border border-sage-100 rounded-xl text-sage-900 focus:outline-none transition-all font-bold cursor-pointer text-sm appearance-none"
+                    className="w-full px-4 py-3.5 bg-sage-50 border border-sage-100 rounded-xl text-sage-900 focus:outline-none transition-all font-bold cursor-pointer text-base md:text-sm appearance-none"
                   >
                     <option value="">Tidak ditautkan</option>
                     {pots.map(pot => (

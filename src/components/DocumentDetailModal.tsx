@@ -262,7 +262,7 @@ export default function DocumentDetailModal({ doc, onClose, onDelete, onUpdate }
                           {isEditing ? (
                             <input type="text" value={editedFields[i]?.value ?? ''} onChange={e => {
                               const n = [...editedFields]; n[i] = { ...n[i], value: e.target.value }; setEditedFields(n);
-                            }} className="w-full bg-white border border-sage-200 rounded-xl px-3 py-1.5 text-sm font-bold text-sage-900 focus:outline-none" />
+                            }} className="w-full bg-white border border-sage-200 rounded-xl px-3 py-1.5 text-base md:text-sm font-bold text-sage-900 focus:outline-none" />
                           ) : (
                             <p className="text-sm font-bold text-sage-900 truncate leading-tight">{field.value || <span className="text-sage-300 italic">Kosong</span>}</p>
                           )}

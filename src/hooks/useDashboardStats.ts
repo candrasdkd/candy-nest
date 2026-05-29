@@ -2,9 +2,13 @@ import { useMemo, useState, useEffect } from 'react';
 import { startOfMonth, endOfMonth, isWithinInterval, parseISO, format } from 'date-fns';
 import { id } from 'date-fns/locale';
 import { Transaction, getCategoryInfo, formatRupiah } from '../types';
+import { useSavingsStore } from '../store/useSavingsStore';
+import { useAuthStore } from '../store/useAuthStore';
 
 export function useDashboardStats(transactions: Transaction[], date: Date = new Date()) {
   const [hideBalance, setHideBalance] = useState(true);
+  const { pots, initPots } = useSavingsStore();
+  const { userProfile } = useAuthStore();
 
   // Hapus badge notifikasi saat user membuka Dashboard
   useEffect(() => {
@@ -12,6 +16,12 @@ export function useDashboardStats(transactions: Transaction[], date: Date = new 
       (navigator as any).clearAppBadge().catch(() => {});
     }
   }, []);
+
+  // Subscribe to savings pots
+  useEffect(() => {
+    const unsub = initPots();
+    return unsub;
+  }, [initPots, userProfile?.coupleId]);
 
   // 1. Filter transaksi bulan ini
   const thisMonthTx = useMemo(() => {
@@ -44,12 +54,10 @@ export function useDashboardStats(transactions: Transaction[], date: Date = new 
     };
   }, [thisMonthTx]);
 
-  // 2.1 Hitung Total Saldo (Seluruh Waktu / Tabungan Kumulatif)
+  // 2.1 Hitung Total Saldo berdasarkan jumlah total seluruh Pos Tabungan
   const allTimeBalance = useMemo(() => {
-    return transactions.reduce((acc, tx) => {
-      return tx.type === 'income' ? acc + tx.amount : acc - tx.amount;
-    }, 0);
-  }, [transactions]);
+    return pots.reduce((sum, pot) => sum + pot.currentBalance, 0);
+  }, [pots]);
 
   // 4. Pie chart data pengeluaran per kategori bulan ini
   const pieData = useMemo(() => {

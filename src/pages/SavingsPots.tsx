@@ -69,7 +69,7 @@ export default function SavingsPots() {
             <Sparkles className="w-4 h-4 fill-rose-400" />
             <span className="text-[10px] font-bold uppercase tracking-[0.3em]">Envelope Budgeting</span>
           </div>
-          <h1 className="font-display text-4xl lg:text-5xl text-sage-900 tracking-tight">Pos Tabungan</h1>
+          <h1 className="font-display text-3xl sm:text-4xl lg:text-5xl text-sage-900 tracking-tight">Pos Tabungan</h1>
           <p className="text-sage-400 text-sm mt-1 font-medium">Bagi gaji ke pos-pos tujuan hidupmu</p>
         </div>
         <div className="flex gap-3">
@@ -93,9 +93,7 @@ export default function SavingsPots() {
       {/* Total Balance Card */}
       {s.pots.length > 0 && (
         <motion.div initial={{ opacity: 0, scale: 0.97 }} animate={{ opacity: 1, scale: 1 }}
-          className="relative overflow-hidden rounded-[2.5rem] bg-gradient-to-br from-sage-700 via-sage-800 to-sage-900 p-8 md:p-10 text-white shadow-[0_32px_64px_-16px_rgba(0,0,0,0.25)]">
-          <div className="absolute -right-16 -top-16 w-64 h-64 bg-white/10 rounded-full blur-[80px]" />
-          <div className="absolute -left-8 -bottom-8 w-40 h-40 bg-rose-400/20 rounded-full blur-[60px]" />
+          className="relative overflow-hidden rounded-[2.5rem] bg-gradient-to-br from-sage-700 via-sage-800 to-sage-900 p-8 md:p-10 text-white shadow-[0_20px_40px_-8px_rgba(0,0,0,0.15)]">
           <div className="relative z-10">
             <div className="flex items-center justify-between gap-4 w-full mb-1">
               <p className="text-[10px] font-bold text-white/50 uppercase tracking-[0.25em]">Total Seluruh Pos</p>
@@ -108,7 +106,7 @@ export default function SavingsPots() {
                 {s.hideBalance ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
               </button>
             </div>
-            <p className="font-mono text-4xl md:text-5xl font-black tracking-tighter">{s.hideBalance ? 'Rp ••••••' : formatRupiah(s.totalBalance)}</p>
+            <p className="font-mono text-2xl sm:text-3xl md:text-5xl font-black tracking-tighter">{s.hideBalance ? 'Rp ••••••' : formatRupiah(s.totalBalance)}</p>
             <p className="text-white/40 text-xs font-medium mt-2">{s.pots.length} pos aktif</p>
           </div>
         </motion.div>
@@ -134,101 +132,80 @@ export default function SavingsPots() {
 
       {/* Pot Cards Grid */}
       {s.potsLoading ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+        <div className="grid grid-cols-2 sm:grid-cols-2 gap-3 sm:gap-5">
           {[1, 2, 3, 4].map(i => (
-            <div key={i} className="h-52 rounded-[2.5rem] bg-sage-50 animate-pulse" />
+            <div key={i} className="h-44 sm:h-52 rounded-[1.5rem] sm:rounded-[2.5rem] bg-sage-50 animate-pulse" />
           ))}
         </div>
       ) : (
         <motion.div variants={container} initial="hidden" animate="show"
-          className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+          className="grid grid-cols-2 sm:grid-cols-2 gap-3 sm:gap-5">
           {s.pots.map(pot => {
             const progress = pot.targetAmount && pot.targetAmount > 0
               ? Math.min(100, (pot.currentBalance / pot.targetAmount) * 100) : null;
             return (
-              <motion.div key={pot.id} variants={item}
-                className="group relative rounded-[2.5rem] bg-white border border-sage-100/50 shadow-[0_8px_30px_rgb(0,0,0,0.04)] hover:shadow-[0_20px_40px_rgb(0,0,0,0.08)] transition-all duration-500 hover:-translate-y-1 flex flex-col justify-between overflow-hidden">
-                
-                {/* Dynamic Header Background */}
-                <div className="absolute top-0 left-0 right-0 h-32 opacity-[0.15] transition-opacity duration-500 group-hover:opacity-25"
-                  style={{ background: `linear-gradient(to bottom, ${pot.color}, transparent)` }} />
-                
-                {/* Large Background Emoji */}
-                <div className="absolute -right-4 -bottom-4 text-9xl opacity-5 rotate-[-15deg] pointer-events-none transition-all duration-500 group-hover:scale-110 group-hover:-rotate-[25deg]">
-                  {pot.emoji}
-                </div>
+              <motion.div 
+                key={pot.id} 
+                variants={item}
+                onClick={() => s.openHistory(pot.id)}
+                className="group relative rounded-[1.5rem] sm:rounded-[2.2rem] border shadow-[0_8px_30px_rgba(0,0,0,0.02)] hover:shadow-[0_20px_40px_rgba(0,0,0,0.06)] transition-all duration-500 hover:-translate-y-1 flex flex-col justify-between overflow-hidden cursor-pointer"
+                style={{ 
+                  backgroundColor: `${pot.color}0D`, // 5% opacity for a very soft pastel background tint
+                  borderColor: `${pot.color}2A`     // 16% opacity for matching border color
+                }}
+              >
+                {/* Hover Highlight Overlay */}
+                <div 
+                  className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none"
+                  style={{ backgroundColor: `${pot.color}08` }} // 3% extra opacity on hover to feel alive
+                />
 
-                <div className="relative p-7 flex-1 flex flex-col gap-6">
-                  {/* Header Row */}
-                  <div className="flex items-start justify-between">
-                    <div className="flex items-center gap-4">
-                      <div className="w-14 h-14 rounded-[1.25rem] flex items-center justify-center text-2xl shadow-sm bg-white/80 backdrop-blur-md border border-white ring-1 ring-black/5"
-                        style={{ color: pot.color }}>
-                        {pot.emoji}
-                      </div>
-                      <div>
-                        <h3 className="font-display font-bold text-sage-900 text-xl tracking-tight leading-none mb-1.5">{pot.name}</h3>
-                        {pot.targetAmount ? (
-                          <p className="text-[10px] font-bold text-sage-500 uppercase tracking-widest">
-                            Target {formatRupiah(pot.targetAmount)}
-                          </p>
-                        ) : (
-                          <p className="text-[10px] font-bold text-sage-400 uppercase tracking-widest">Tanpa Target</p>
-                        )}
-                      </div>
+                <div className="relative p-4 sm:p-6 flex-1 flex flex-col justify-between gap-4 sm:gap-6 z-10">
+                  {/* Emoji + Title Row */}
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full flex items-center justify-center text-lg sm:text-xl shadow-md bg-white border border-white/80 flex-shrink-0">
+                      {pot.emoji}
                     </div>
-                    {/* Context Menu / Actions (Always visible for mobile UX) */}
-                    <div className="flex gap-1 bg-white/80 backdrop-blur-md rounded-xl p-1 shadow-sm ring-1 ring-black/5">
-                      <button onClick={() => s.openEdit(pot.id)}
-                        className="w-8 h-8 flex items-center justify-center rounded-lg text-sage-400 hover:text-sage-700 hover:bg-sage-50 transition-all">
-                        <Pencil className="w-3.5 h-3.5" />
-                      </button>
-                      <button onClick={() => s.openDeleteConfirm(pot.id)}
-                        className="w-8 h-8 flex items-center justify-center rounded-lg text-rose-300 hover:text-rose-600 hover:bg-rose-50 transition-all">
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
+                    <div className="min-w-0 flex-1">
+                      <h3 className="font-display font-bold text-sage-900 text-xs sm:text-lg tracking-tight leading-tight truncate">
+                        {pot.name}
+                      </h3>
+                      {pot.targetAmount ? (
+                        <p className="text-[8px] sm:text-[10px] font-semibold text-sage-500 uppercase tracking-wider truncate">
+                          Target {formatRupiah(pot.targetAmount)}
+                        </p>
+                      ) : (
+                        <p className="text-[8px] sm:text-[10px] font-semibold text-sage-400 uppercase tracking-wider">
+                          Tanpa Target
+                        </p>
+                      )}
                     </div>
                   </div>
 
                   {/* Balance & Progress */}
-                  <div className="mt-auto space-y-5 pt-2">
+                  <div className="space-y-2.5 sm:space-y-4">
                     <div>
-                      <p className="text-[10px] font-bold text-sage-400 uppercase tracking-widest mb-1.5">Total Terkumpul</p>
-                      <p className="font-mono text-4xl font-black text-sage-900 tracking-tighter">{formatRupiah(pot.currentBalance)}</p>
+                      <p className="text-[8px] sm:text-[10px] font-bold text-sage-400 uppercase tracking-widest mb-0.5">Saldo</p>
+                      <p className="font-mono text-base sm:text-2xl md:text-3xl font-black text-sage-900 tracking-tighter truncate">
+                        {s.hideBalance ? 'Rp ••••••' : formatRupiah(pot.currentBalance)}
+                      </p>
                     </div>
 
                     {progress !== null && (
-                      <div className="space-y-2">
-                        <div className="h-2.5 bg-sage-100/50 rounded-full overflow-hidden ring-1 ring-inset ring-black/5">
+                      <div className="space-y-1">
+                         <div className="h-1.5 sm:h-2 bg-white/80 border border-black/[0.03] rounded-full overflow-hidden">
                           <motion.div initial={{ width: 0 }} animate={{ width: `${progress}%` }}
                             transition={{ duration: 1, ease: 'easeOut', delay: 0.1 }}
-                            className="h-full rounded-full relative" 
+                            className="h-full rounded-full" 
                             style={{ backgroundColor: pot.color }} />
                         </div>
-                        <div className="flex justify-between text-[10px] font-bold text-sage-500">
+                        <div className="flex justify-between text-[8px] sm:text-[10px] font-medium text-sage-500 gap-2">
                           <span>{progress.toFixed(0)}%</span>
-                          <span>Sisa {formatRupiah(Math.max(0, pot.targetAmount! - pot.currentBalance))}</span>
+                          <span className="truncate">Sisa {formatRupiah(Math.max(0, pot.targetAmount! - pot.currentBalance))}</span>
                         </div>
                       </div>
                     )}
                   </div>
-                </div>
-
-                {/* Bottom Actions */}
-                <div className="relative p-2 mx-5 mb-5 bg-sage-50/50 rounded-2xl flex gap-2">
-                  <button onClick={() => s.openDeposit(pot.id)}
-                    className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl font-bold text-xs text-white shadow-sm transition-all hover:opacity-90 active:scale-95"
-                    style={{ backgroundColor: pot.color }}>
-                    <ArrowDownCircle className="w-4 h-4" /> Masuk
-                  </button>
-                  <button onClick={() => s.openWithdraw(pot.id)}
-                    className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl font-bold text-xs bg-white text-sage-700 shadow-sm ring-1 ring-sage-200/50 hover:bg-sage-50 transition-all active:scale-95">
-                    <ArrowUpCircle className="w-4 h-4" /> Pakai
-                  </button>
-                  <button onClick={() => s.openHistory(pot.id)}
-                    className="w-12 flex items-center justify-center rounded-xl bg-white text-sage-400 shadow-sm ring-1 ring-sage-200/50 hover:bg-sage-50 hover:text-sage-700 transition-all active:scale-95">
-                    <History className="w-4 h-4" />
-                  </button>
                 </div>
               </motion.div>
             );
@@ -389,28 +366,65 @@ export default function SavingsPots() {
           <BottomSheet onClose={s.closeModal} title="Cek & Analisis Pos">
             <div className="space-y-5">
               
-              {/* Pot Selector Dropdown */}
-              <div>
-                <label className="label-xs flex items-center gap-1.5 mb-1.5">
-                  <Wallet className="w-3 h-3 text-sage-500" />
-                  Pilih Pos Tabungan
-                </label>
-                <div className="relative">
-                  <select
-                    value={s.selectedPot.id}
-                    onChange={(e) => s.changeHistoryPotId(e.target.value)}
-                    className="w-full px-4 py-3 bg-sage-50/50 border border-sage-100 rounded-2xl text-sm font-bold text-sage-900 focus:outline-none focus:ring-2 focus:ring-sage-400/20 appearance-none cursor-pointer"
-                  >
-                    {s.pots.map(p => (
-                      <option key={p.id} value={p.id}>
-                        {p.emoji} {p.name} (Saldo: {formatRupiah(p.currentBalance)})
-                      </option>
-                    ))}
-                  </select>
-                  <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-sage-400 text-xs">
-                    ▼
+              {/* Pot Selector Dropdown & Management Actions */}
+              <div className="flex gap-2 items-end">
+                <div className="flex-1 min-w-0">
+                  <label className="label-xs flex items-center gap-1.5 mb-1.5">
+                    <Wallet className="w-3 h-3 text-sage-500" />
+                    Pilih Pos Tabungan
+                  </label>
+                  <div className="relative">
+                    <select
+                      value={s.selectedPot.id}
+                      onChange={(e) => s.changeHistoryPotId(e.target.value)}
+                      className="w-full pl-4 pr-10 py-3 bg-sage-50/50 border border-sage-100 rounded-2xl text-sm font-bold text-sage-900 focus:outline-none focus:ring-2 focus:ring-sage-400/20 appearance-none cursor-pointer truncate"
+                    >
+                      {s.pots.map(p => (
+                        <option key={p.id} value={p.id}>
+                          {p.emoji} {p.name} ({formatRupiah(p.currentBalance)})
+                        </option>
+                      ))}
+                    </select>
+                    <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-sage-400 text-xs">
+                      ▼
+                    </div>
                   </div>
                 </div>
+
+                {/* Edit and Delete Buttons */}
+                <button
+                  onClick={() => s.openEdit(s.selectedPot!.id)}
+                  className="w-11 h-11 flex items-center justify-center rounded-2xl bg-sage-50 text-sage-600 hover:bg-sage-100 transition-all border border-sage-100 hover:scale-105 active:scale-95 shrink-0"
+                  title="Edit Pos"
+                >
+                  <Pencil className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={() => s.openDeleteConfirm(s.selectedPot!.id)}
+                  className="w-11 h-11 flex items-center justify-center rounded-2xl bg-rose-50 text-rose-600 hover:bg-rose-100 transition-all border border-rose-100 hover:scale-105 active:scale-95 shrink-0"
+                  title="Hapus Pos"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* Quick Transaction Actions (Masuk / Pakai) */}
+              <div className="grid grid-cols-2 gap-3 pt-1">
+                <button
+                  onClick={() => s.openDeposit(s.selectedPot!.id)}
+                  className="flex items-center justify-center gap-2 py-3.5 px-4 rounded-2xl font-bold text-xs text-white shadow-md transition-all hover:scale-[1.02] active:scale-95"
+                  style={{ backgroundColor: s.selectedPot.color }}
+                >
+                  <ArrowDownCircle className="w-4 h-4" />
+                  Masukkan Uang
+                </button>
+                <button
+                  onClick={() => s.openWithdraw(s.selectedPot!.id)}
+                  className="flex items-center justify-center gap-2 py-3.5 px-4 rounded-2xl font-bold text-xs bg-white text-sage-800 shadow-sm ring-1 ring-sage-200 hover:bg-sage-50 transition-all hover:scale-[1.02] active:scale-95"
+                >
+                  <ArrowUpCircle className="w-4 h-4 text-sage-600" />
+                  Pakai / Tarik
+                </button>
               </div>
 
               {/* Date Range Inputs */}

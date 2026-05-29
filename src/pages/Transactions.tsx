@@ -60,6 +60,7 @@ export default function Transactions() {
 
   const [detailTx, setDetailTx] = useState<Transaction | null>(null);
   const [editTx, setEditTx] = useState<Transaction | null>(null);
+  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
 
   const transactions = useDataStore(s => s.transactions);
   const [searchParams, setSearchParams] = useSearchParams();
@@ -91,16 +92,16 @@ export default function Transactions() {
       initial="hidden"
       animate="visible"
       variants={containerVariants}
-      className="p-6 lg:p-12 max-w-5xl mx-auto space-y-10 pb-32"
+      className="p-4 sm:p-6 lg:p-12 max-w-5xl mx-auto space-y-6 sm:space-y-10 pb-32"
     >
       {/* Header Profile Section */}
-      <motion.div variants={itemVariants} className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+      <motion.div variants={itemVariants} className="flex flex-col md:flex-row md:items-center justify-between gap-4 sm:gap-6">
         <div className="space-y-1 text-center md:text-left">
           <div className="flex items-center justify-center md:justify-start gap-2 text-sage-400 mb-1">
             <ArrowUpDown className="w-4 h-4" />
             <span className="text-[10px] font-bold uppercase tracking-[0.3em]">Riwayat Keuangan</span>
           </div>
-          <h1 className="font-display text-4xl text-sage-900 tracking-tight">Semua Transaksi</h1>
+          <h1 className="font-display text-3xl sm:text-4xl text-sage-900 tracking-tight">Semua Transaksi</h1>
         </div>
 
         <button
@@ -108,25 +109,25 @@ export default function Transactions() {
             setEditTx(null);
             setShowModal(true);
           }}
-          className="flex items-center justify-center gap-3 px-8 py-4 bg-sage-800 text-white rounded-[2rem] font-bold hover:bg-sage-900 transition-all shadow-2xl shadow-sage-900/10 active:scale-95"
+          className="flex items-center justify-center gap-3 px-5 py-3 sm:px-8 sm:py-4 bg-sage-800 text-white rounded-[2rem] font-bold hover:bg-sage-900 transition-all shadow-2xl shadow-sage-900/10 active:scale-95 text-xs sm:text-sm"
         >
-          <Plus className="w-5 h-5" />
+          <Plus className="w-4 h-4" />
           <span>Tambah Transaksi</span>
         </button>
       </motion.div>
 
       {/* Modern Filter Bar */}
-      <motion.div variants={itemVariants} className="bg-white/80 backdrop-blur-xl border border-white/60 rounded-[2.5rem] p-4 lg:p-6 shadow-2xl shadow-sage-900/5 space-y-4">
-        <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
-          {/* Search Input */}
-          <div className="md:col-span-5 relative group">
+      <motion.div variants={itemVariants} className="bg-white/80 backdrop-blur-xl border border-white/60 rounded-[2rem] sm:rounded-[2.5rem] p-4 lg:p-6 shadow-2xl shadow-sage-900/5 space-y-4">
+        {/* Search Row */}
+        <div className="flex gap-3">
+          <div className="flex-1 relative group">
             <Search className="absolute left-5 top-1/2 -translate-y-1/2 w-4 h-4 text-sage-400 group-focus-within:text-sage-600 transition-colors" />
             <input
               type="text"
               value={search}
               onChange={e => setSearch(e.target.value)}
               placeholder="Cari deskripsi atau kategori..."
-              className="w-full pl-12 pr-4 py-4 bg-sage-50/50 border border-sage-100 rounded-[1.5rem] text-sage-900 focus:outline-none focus:ring-2 focus:ring-sage-500/20 focus:border-sage-500/30 transition-all text-base md:text-sm font-medium"
+              className="w-full pl-12 pr-10 py-3.5 bg-sage-50/50 border border-sage-100 rounded-[1.5rem] text-sage-900 focus:outline-none focus:ring-2 focus:ring-sage-500/20 focus:border-sage-500/30 transition-all text-base md:text-sm font-medium"
             />
             {search && (
               <button
@@ -138,74 +139,107 @@ export default function Transactions() {
             )}
           </div>
 
-          {/* Type Filter */}
-          <div className="md:col-span-3 flex p-1 bg-sage-50/50 rounded-[1.5rem] border border-sage-100">
-            {(['all', 'income', 'expense'] as const).map(t => (
-              <button
-                key={t}
-                onClick={() => setFilterType(t)}
-                className={`flex-1 py-3 rounded-2xl text-[10px] font-bold uppercase tracking-wider transition-all ${filterType === t
-                  ? 'bg-white text-sage-900 shadow-sm'
-                  : 'text-sage-400 hover:text-sage-600'
-                  }`}
-              >
-                {t === 'all' ? 'Semua' : t === 'income' ? 'Masuk' : 'Keluar'}
-              </button>
-            ))}
-          </div>
+          {/* Toggle Filter Button on Mobile */}
+          <button
+            onClick={() => setShowAdvancedFilters(prev => !prev)}
+            className={`md:hidden px-4 flex items-center justify-center gap-2 rounded-[1.5rem] border transition-all ${
+              showAdvancedFilters || filterType !== 'all' || startDate || endDate
+                ? 'bg-sage-800 border-sage-800 text-white shadow-lg shadow-sage-800/20'
+                : 'bg-sage-50/50 border-sage-100 text-sage-600 hover:bg-sage-100'
+            }`}
+          >
+            <span className="text-xs font-bold">Filter</span>
+            {(filterType !== 'all' || startDate || endDate) && (
+              <span className="w-2 h-2 rounded-full bg-rose-400 animate-pulse" />
+            )}
+          </button>
+        </div>
 
-          <div className="md:col-span-4 flex items-center bg-sage-50/50 p-1 rounded-[1.5rem] border border-sage-100 overflow-hidden">
-            <div className="flex-1 flex items-center px-3 gap-2 group/date relative">
-              <Calendar className="w-3.5 h-3.5 text-sage-400 shrink-0" />
-              <input
-                type="date"
-                value={startDate}
-                onChange={e => setStartDate(e.target.value)}
-                onClick={(e) => e.currentTarget.showPicker()}
-                className="w-full py-2 bg-transparent text-[11px] font-bold text-sage-700 focus:outline-none cursor-pointer appearance-none [&::-webkit-calendar-picker-indicator]:hidden"
-              />
+        {/* Collapsible Advanced Filters */}
+        <div className={`${showAdvancedFilters ? 'block' : 'hidden'} md:block pt-1 md:pt-0`}>
+          <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
+            {/* Type Filter */}
+            <div className="md:col-span-5 flex p-1 bg-sage-50/50 rounded-[1.5rem] border border-sage-100">
+              {(['all', 'income', 'expense'] as const).map(t => (
+                <button
+                  key={t}
+                  onClick={() => setFilterType(t)}
+                  className={`flex-1 py-2.5 rounded-2xl text-[10px] font-bold uppercase tracking-wider transition-all ${filterType === t
+                    ? 'bg-white text-sage-900 shadow-sm'
+                    : 'text-sage-400 hover:text-sage-600'
+                    }`}
+                >
+                  {t === 'all' ? 'Semua' : t === 'income' ? 'Masuk' : 'Keluar'}
+                </button>
+              ))}
             </div>
-            <div className="w-px h-6 bg-sage-100 shrink-0" />
-            <div className="flex-1 flex items-center px-3 gap-2 group/date relative">
-              <Calendar className="w-3.5 h-3.5 text-sage-400 shrink-0" />
-              <input
-                type="date"
-                value={endDate}
-                onChange={e => setEndDate(e.target.value)}
-                onClick={(e) => e.currentTarget.showPicker()}
-                className="w-full py-2 bg-transparent text-[11px] font-bold text-sage-700 focus:outline-none cursor-pointer appearance-none [&::-webkit-calendar-picker-indicator]:hidden"
-              />
+
+            {/* Date Range Picker */}
+            <div className="md:col-span-7 flex items-center bg-sage-50/50 p-1 rounded-[1.5rem] border border-sage-100 overflow-hidden">
+              <div className="flex-1 flex items-center px-3 gap-2 group/date relative">
+                <Calendar className="w-3.5 h-3.5 text-sage-400 shrink-0" />
+                <input
+                  type="date"
+                  value={startDate}
+                  onChange={e => setStartDate(e.target.value)}
+                  onClick={(e) => e.currentTarget.showPicker()}
+                  className="w-full py-2 bg-transparent text-[11px] font-bold text-sage-700 focus:outline-none cursor-pointer appearance-none [&::-webkit-calendar-picker-indicator]:hidden"
+                />
+              </div>
+              <div className="w-px h-6 bg-sage-100 shrink-0" />
+              <div className="flex-1 flex items-center px-3 gap-2 group/date relative">
+                <Calendar className="w-3.5 h-3.5 text-sage-400 shrink-0" />
+                <input
+                  type="date"
+                  value={endDate}
+                  onChange={e => setEndDate(e.target.value)}
+                  onClick={(e) => e.currentTarget.showPicker()}
+                  className="w-full py-2 bg-transparent text-[11px] font-bold text-sage-700 focus:outline-none cursor-pointer appearance-none [&::-webkit-calendar-picker-indicator]:hidden"
+                />
+              </div>
             </div>
           </div>
         </div>
       </motion.div>
 
-      {/* Summary Cards Row */}
-      <motion.div variants={itemVariants} className="grid grid-cols-1 sm:grid-cols-2 gap-4 md:gap-6">
-        <div className="p-6 md:p-8 rounded-[2.5rem] bg-emerald-50/50 border border-emerald-100/50 flex items-center justify-between group transition-all hover:bg-emerald-50">
-          <div className="space-y-1">
-            <span className="text-[9px] md:text-[10px] font-bold uppercase tracking-[0.2em] text-emerald-600 block">Pemasukan Terfilter</span>
-            <div className="font-mono text-2xl md:text-3xl font-bold text-emerald-700 tracking-tighter truncate">
-              {formatRupiah(totalIncome)}
-            </div>
-          </div>
-          <div className="w-12 h-12 md:w-14 md:h-14 bg-emerald-100 rounded-2xl flex items-center justify-center text-emerald-600 group-hover:scale-110 transition-transform flex-shrink-0 ml-4">
-            <TrendingUp className="w-6 h-6 md:w-7 md:h-7" />
-          </div>
-        </div>
+      {/* Summary Cards Row (Autohide: only visible when filters are active) */}
+      <AnimatePresence>
+        {!!(search.trim() || filterType !== 'all' || startDate || endDate) && (
+          <motion.div
+            initial={{ opacity: 0, height: 0, marginTop: 0 }}
+            animate={{ opacity: 1, height: 'auto', marginTop: 24 }}
+            exit={{ opacity: 0, height: 0, marginTop: 0 }}
+            transition={{ duration: 0.3, ease: 'easeInOut' }}
+            className="overflow-hidden"
+          >
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 md:gap-6">
+              <div className="p-5 sm:p-6 md:p-8 rounded-[2rem] sm:rounded-[2.5rem] bg-emerald-50/50 border border-emerald-100/50 flex items-center justify-between group transition-all hover:bg-emerald-50">
+                <div className="space-y-1">
+                  <span className="text-[9px] md:text-[10px] font-bold uppercase tracking-[0.2em] text-emerald-600 block">Pemasukan Terfilter</span>
+                  <div className="font-mono text-xl sm:text-2xl md:text-3xl font-bold text-emerald-700 tracking-tighter truncate">
+                    {formatRupiah(totalIncome)}
+                  </div>
+                </div>
+                <div className="w-10 h-10 sm:w-12 sm:h-12 md:w-14 md:h-14 bg-emerald-100 rounded-2xl flex items-center justify-center text-emerald-600 group-hover:scale-110 transition-transform flex-shrink-0 ml-4">
+                  <TrendingUp className="w-5 h-5 sm:w-6 sm:h-6 md:w-7 md:h-7" />
+                </div>
+              </div>
 
-        <div className="p-6 md:p-8 rounded-[2.5rem] bg-rose-50/50 border border-rose-100/50 flex items-center justify-between group transition-all hover:bg-rose-50">
-          <div className="space-y-1">
-            <span className="text-[9px] md:text-[10px] font-bold uppercase tracking-[0.2em] text-rose-500 block">Pengeluaran Terfilter</span>
-            <div className="font-mono text-2xl md:text-3xl font-bold text-rose-600 tracking-tighter truncate">
-              {formatRupiah(totalExpense)}
+              <div className="p-5 sm:p-6 md:p-8 rounded-[2rem] sm:rounded-[2.5rem] bg-rose-50/50 border border-rose-100/50 flex items-center justify-between group transition-all hover:bg-rose-50">
+                <div className="space-y-1">
+                  <span className="text-[9px] md:text-[10px] font-bold uppercase tracking-[0.2em] text-rose-500 block">Pengeluaran Terfilter</span>
+                  <div className="font-mono text-xl sm:text-2xl md:text-3xl font-bold text-rose-600 tracking-tighter truncate">
+                    {formatRupiah(totalExpense)}
+                  </div>
+                </div>
+                <div className="w-10 h-10 sm:w-12 sm:h-12 md:w-14 md:h-14 bg-rose-100 rounded-2xl flex items-center justify-center text-rose-500 group-hover:scale-110 transition-transform flex-shrink-0 ml-4">
+                  <TrendingDown className="w-5 h-5 sm:w-6 sm:h-6 md:w-7 md:h-7" />
+                </div>
+              </div>
             </div>
-          </div>
-          <div className="w-12 h-12 md:w-14 md:h-14 bg-rose-100 rounded-2xl flex items-center justify-center text-rose-500 group-hover:scale-110 transition-transform flex-shrink-0 ml-4">
-            <TrendingDown className="w-6 h-6 md:w-7 md:h-7" />
-          </div>
-        </div>
-      </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Main List */}
       <div className="space-y-12">
@@ -267,32 +301,32 @@ export default function Transactions() {
                         key={tx.id}
                         onClick={() => setDetailTx(tx)}
                         whileHover={{ scale: 1.01, x: 5 }}
-                        className="group bg-white rounded-[1.8rem] p-4 border border-sage-50 shadow-sm hover:shadow-xl hover:shadow-sage-900/[0.03] transition-all flex items-center justify-between gap-4 cursor-pointer relative overflow-hidden"
+                        className="group bg-white rounded-[1.5rem] sm:rounded-[1.8rem] p-3.5 sm:p-4 border border-sage-50 shadow-sm hover:shadow-xl hover:shadow-sage-900/[0.03] transition-all flex items-center justify-between gap-3 sm:gap-4 cursor-pointer relative overflow-hidden"
                       >
                         {/* Status Accent */}
                         <div className={`absolute left-0 top-0 bottom-0 w-1 ${tx.type === 'income' ? 'bg-emerald-400' : 'bg-rose-400'}`} />
 
-                        <div className="flex items-center gap-3.5 min-w-0">
-                          <div className="w-12 h-12 rounded-xl bg-sage-50 flex items-center justify-center text-2xl flex-shrink-0 group-hover:scale-105 transition-transform duration-300">
-                            <cat.icon className="w-6 h-6 text-sage-500 group-hover:text-sage-700" />
+                        <div className="flex items-center gap-3 sm:gap-3.5 min-w-0">
+                          <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-sage-50 flex items-center justify-center text-xl sm:text-2xl flex-shrink-0 group-hover:scale-105 transition-transform duration-300">
+                            <cat.icon className="w-5 h-5 sm:w-6 sm:h-6 text-sage-500 group-hover:text-sage-700" />
                           </div>
 
                           <div className="min-w-0">
-                            <h4 className="font-bold text-sage-900 text-sm tracking-tight truncate">
+                            <h4 className="font-bold text-sage-900 text-xs sm:text-sm tracking-tight truncate">
                               {cat.label}
                             </h4>
-                            <p className="text-[10px] text-sage-400 font-semibold flex items-center gap-1.5 mt-0.5">
+                            <p className="text-[9px] sm:text-[10px] text-sage-400 font-semibold flex items-center gap-1.5 mt-0.5">
                               {tx.createdAt && format(parseISO(tx.createdAt), 'HH:mm')}
                               <span>·</span>
-                              <span className={`text-[8.5px] font-black uppercase tracking-tight ${isMine ? 'text-sage-500' : 'text-rose-500'}`}>
+                              <span className={`text-[8px] sm:text-[8.5px] font-black uppercase tracking-tight ${isMine ? 'text-sage-500' : 'text-rose-500'}`}>
                                 {isMine ? 'Saya' : 'Pasangan'}
                               </span>
                             </p>
                           </div>
                         </div>
 
-                        <div className="flex items-center gap-3">
-                          <div className={`font-mono text-sm md:text-base font-black tracking-tighter whitespace-nowrap ${tx.type === 'income' ? 'text-emerald-600' : 'text-rose-600'}`}>
+                        <div className="flex items-center gap-2 sm:gap-3">
+                          <div className={`font-mono text-xs sm:text-sm md:text-base font-black tracking-tighter whitespace-nowrap ${tx.type === 'income' ? 'text-emerald-600' : 'text-rose-600'}`}>
                             {tx.type === 'income' ? '+' : '-'}{formatRupiah(tx.amount)}
                           </div>
 
@@ -303,7 +337,7 @@ export default function Transactions() {
                                 e.stopPropagation();
                                 setEditTx(tx);
                               }}
-                              className="p-2 rounded-xl text-sage-400 hover:text-sage-700 hover:bg-sage-50 transition-all shrink-0"
+                              className="p-1.5 sm:p-2 rounded-xl text-sage-400 hover:text-sage-700 hover:bg-sage-50 transition-all shrink-0"
                               title="Ubah transaksi"
                             >
                               <Edit2 className="w-3.5 h-3.5" />
@@ -313,7 +347,7 @@ export default function Transactions() {
                                 e.stopPropagation();
                                 handleDelete(tx.id);
                               }}
-                              className="p-2 rounded-xl text-sage-400 hover:text-rose-500 hover:bg-rose-50 transition-all shrink-0"
+                              className="p-1.5 sm:p-2 rounded-xl text-sage-400 hover:text-rose-500 hover:bg-rose-50 transition-all shrink-0"
                               title="Hapus transaksi"
                             >
                               <Trash2 className="w-3.5 h-3.5" />

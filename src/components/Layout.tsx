@@ -285,7 +285,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         </header>
 
         {/* Page Container */}
-        <main className="flex-1 overflow-y-auto scroll-smooth">
+        <main className="flex-1 overflow-y-auto overscroll-y-contain scroll-smooth">
           {/* Offline Banner */}
           <AnimatePresence>
             {!isOnline && (

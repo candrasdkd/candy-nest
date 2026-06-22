@@ -8,8 +8,8 @@ import {
   Calendar,
   History,
   Share2,
-  Eye,
-  EyeOff
+  TrendingDown,
+  Receipt,
 } from 'lucide-react';
 import { motion, AnimatePresence, Variants } from 'framer-motion';
 import { format } from 'date-fns';
@@ -33,42 +33,35 @@ const containerVariants: Variants = {
   hidden: { opacity: 0 },
   visible: {
     opacity: 1,
-    transition: { staggerChildren: 0.1 }
+    transition: { staggerChildren: 0.08 }
   }
 };
 
 const itemVariants: Variants = {
-  hidden: { opacity: 0, y: 20 },
-  visible: { opacity: 1, y: 0, transition: { type: 'spring', stiffness: 100 } }
+  hidden: { opacity: 0, y: 24 },
+  visible: { opacity: 1, y: 0, transition: { type: 'spring', stiffness: 90, damping: 18 } }
 };
 
 const COLORS = [
-  '#4F6F52', // Sage Green
-  '#E6A4B4', // Rose Pink
-  '#7A9D54', // Olive
-  '#F3D7CA', // Peach
-  '#8EACCD', // Soft Blue
-  '#D2E0FB', // Sky
-  '#B4BDFF', // Lavender
-  '#F9F3CC', // Cream
+  '#be123c', // rose-700
+  '#4F6F52', // Sage
+  '#a16207', // amber-700
+  '#7c3aed', // violet-600
+  '#0369a1', // sky-700
+  '#059669', // emerald-600
+  '#c2410c', // orange-700
+  '#4338ca', // indigo-700
 ];
 
-const CustomTooltip = ({ active, payload, label }: any) => {
+const CustomTooltip = ({ active, payload }: any) => {
   if (active && payload && payload.length) {
     return (
-      <div className="bg-white/95 backdrop-blur-xl border border-cream-200 p-4 rounded-[1.5rem] shadow-2xl shadow-sage-900/10">
-        <p className="text-sage-400 text-[10px] font-bold uppercase tracking-widest mb-2">{label}</p>
-        <div className="space-y-2">
-          {payload.map((p: any, i: number) => (
-            <div key={i} className="flex items-center justify-between gap-6 text-sm font-bold">
-              <div className="flex items-center gap-2">
-                <div className="w-2.5 h-2.5 rounded-full" style={{ background: p.color || p.payload.fill }} />
-                <span className="text-sage-800">{p.name}</span>
-              </div>
-              <span className="font-mono text-sage-900">{formatRupiah(p.value)}</span>
-            </div>
-          ))}
+      <div className="bg-white/98 backdrop-blur-xl border border-sage-100 p-3.5 rounded-2xl shadow-2xl shadow-sage-900/10">
+        <div className="flex items-center gap-2.5">
+          <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: payload[0].payload.fill }} />
+          <span className="text-sage-700 text-xs font-bold">{payload[0].name}</span>
         </div>
+        <span className="font-mono text-sm font-black text-sage-900 mt-1 block">{formatRupiah(payload[0].value)}</span>
       </div>
     );
   }
@@ -82,35 +75,34 @@ export default function Dashboard() {
   const now = new Date();
 
   const {
-    totalIncome,
     totalExpense,
-    balance,
-    allTimeBalance,
     pieData,
     recentTx,
-    hideBalance,
-    setHideBalance,
     handleShareStats,
   } = useDashboardStats(transactions, now);
+
+  const topCategory = pieData[0];
+  const txCountThisMonth = pieData.reduce((sum, d) => sum + 1, 0);
 
   if (!userProfile?.coupleId) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[80vh] p-8 text-center relative overflow-hidden">
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-64 h-64 bg-rose-100/30 rounded-full blur-[100px] -z-10" />
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-rose-100/20 rounded-full blur-[120px] -z-10" />
         <motion.div
-          initial={{ scale: 0 }}
-          animate={{ scale: 1 }}
-          className="w-24 h-24 bg-white rounded-[2.5rem] shadow-2xl flex items-center justify-center mb-8 border border-rose-50"
+          initial={{ scale: 0, rotate: -10 }}
+          animate={{ scale: 1, rotate: 0 }}
+          transition={{ type: 'spring', stiffness: 200, damping: 20 }}
+          className="w-28 h-28 bg-gradient-to-br from-rose-400 to-rose-600 rounded-[2.5rem] shadow-2xl shadow-rose-500/30 flex items-center justify-center mb-8"
         >
-          <Heart className="w-12 h-12 text-rose-400 fill-rose-400" />
+          <Heart className="w-14 h-14 text-white fill-white" />
         </motion.div>
         <h2 className="font-display text-3xl text-sage-900 mb-4 tracking-tight">Hubungkan Cintamu</h2>
-        <p className="text-sage-500 mb-8 max-w-sm leading-relaxed">
+        <p className="text-sage-500 mb-8 max-w-sm leading-relaxed text-sm">
           CandyNest bekerja paling baik saat kamu menggunakannya bersama pasangan. Hubungkan akunmu sekarang!
         </p>
         <Link
           to="/settings"
-          className="px-10 py-4 bg-sage-800 text-white rounded-[2rem] font-bold hover:bg-sage-900 transition-all shadow-xl shadow-sage-900/10 active:scale-95"
+          className="px-10 py-4 bg-sage-800 text-white rounded-[2rem] font-bold hover:bg-sage-900 transition-all shadow-xl shadow-sage-900/15 active:scale-95"
         >
           Hubungkan Sekarang
         </Link>
@@ -123,155 +115,182 @@ export default function Dashboard() {
       initial="hidden"
       animate="visible"
       variants={containerVariants}
-      className="p-4 md:p-8 lg:p-12 max-w-7xl mx-auto space-y-6 md:space-y-10 pb-24"
+      className="p-4 md:p-8 lg:p-10 max-w-7xl mx-auto space-y-5 md:space-y-8 pb-28"
     >
-      {/* Header & Greeting */}
-      <motion.div variants={itemVariants} className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+      {/* ── Header ── */}
+      <motion.div variants={itemVariants} className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="space-y-1">
           <div className="flex items-center gap-2 text-rose-400 mb-1">
-            <Sparkles className="w-4 h-4 fill-rose-400" />
-            <span className="text-[10px] font-bold uppercase tracking-[0.3em]">Ringkasan Bulanan</span>
+            <Sparkles className="w-3.5 h-3.5 fill-rose-400" />
+            <span className="text-[9px] font-bold uppercase tracking-[0.35em]">Ringkasan Bulanan</span>
           </div>
-          <h1 className="font-display text-3xl sm:text-4xl lg:text-5xl text-sage-900 tracking-tight">
-            Halo, {userProfile.displayName}
+          <h1 className="font-display text-2xl sm:text-3xl lg:text-4xl text-sage-900 tracking-tight leading-none">
+            Halo, {userProfile.displayName} 👋
           </h1>
-          <div className="flex items-center gap-2 text-sage-400 font-medium">
-            <Calendar className="w-4 h-4" />
-            <span className="text-sm">{format(now, 'EEEE, dd MMMM yyyy', { locale: id })}</span>
+          <div className="flex items-center gap-1.5 text-sage-400 font-medium pt-1">
+            <Calendar className="w-3.5 h-3.5" />
+            <span className="text-xs">{format(now, 'EEEE, dd MMMM yyyy', { locale: id })}</span>
           </div>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2.5">
           <button
             onClick={handleShareStats}
-            className="w-14 h-14 flex items-center justify-center bg-white border border-sage-100 text-sage-600 rounded-[1.5rem] hover:bg-sage-50 transition-all shadow-lg shadow-sage-900/5 active:scale-95"
+            className="w-11 h-11 flex items-center justify-center bg-white border border-sage-100 text-sage-500 rounded-2xl hover:bg-sage-50 hover:text-sage-700 transition-all shadow-sm active:scale-95"
+            title="Bagikan laporan"
           >
-            <Share2 className="w-5 h-5" />
+            <Share2 className="w-4 h-4" />
           </button>
-          <button
+          <motion.button
+            whileHover={{ scale: 1.03 }}
+            whileTap={{ scale: 0.97 }}
             onClick={() => setShowModal(true)}
-            className="flex items-center justify-center gap-3 px-8 py-4 bg-sage-800 text-white rounded-[2rem] font-bold hover:bg-sage-900 transition-all hover:scale-[1.02] active:scale-[0.98] shadow-2xl shadow-sage-900/20"
+            className="flex items-center justify-center gap-2.5 px-6 py-3 bg-gradient-to-r from-rose-500 to-rose-600 text-white rounded-2xl font-bold text-sm shadow-xl shadow-rose-500/25 hover:shadow-rose-500/40 transition-all"
           >
-            <Plus className="w-5 h-5" />
-            <span>Tambah</span>
-          </button>
+            <Plus className="w-4 h-4" />
+            <span>Catat Pengeluaran</span>
+          </motion.button>
         </div>
       </motion.div>
 
-      {/* Hero Stats Grid */}
-      <div className="grid grid-cols-1 gap-8">
-        {/* Main Balance Card */}
-        <motion.div
-          variants={itemVariants}
-          className={`p-6 md:p-10 rounded-[2.5rem] md:rounded-[3rem] text-white relative overflow-hidden group transition-all duration-700 shadow-[0_20px_40px_-8px_rgba(0,0,0,0.15)] ${allTimeBalance >= 0 ? 'bg-gradient-to-br from-sage-700 to-sage-900' : 'bg-gradient-to-br from-rose-600 to-rose-800'}`}
-        >
-          <div className="flex flex-col justify-between h-full relative z-10">
-            <div className="space-y-6">
-              <div className="flex items-center justify-between gap-4 w-full">
-                <div className="flex items-center gap-4">
-                  <div className="w-14 h-14 rounded-2xl bg-white/20 flex items-center justify-center backdrop-blur-xl border border-white/20 shadow-inner group-hover:scale-110 transition-transform duration-500">
-                    <div className="w-8 h-8 text-white">
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M20 12V8H6a2 2 0 0 1-2-2c0-1.1.9-2 2-2h12v4" /><path d="M4 6v12c0 1.1.9 2 2 2h14v-4" /><path d="M18 12a2 2 0 0 0-2 2c0 1.1.9 2 2 2h4v-4h-4z" /></svg>
-                    </div>
-                  </div>
-                  <div>
-                    <span className="text-[10px] font-bold text-white/60 uppercase tracking-[0.2em] block mb-1">Total Saldo (Tabungan)</span>
-                    <span className="text-xs font-medium text-white/80">Akumulasi Seluruh Waktu</span>
-                  </div>
+      {/* ── Hero + Quick Stats ── */}
+      <motion.div variants={itemVariants} className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-5">
+
+        {/* Hero Card */}
+        <div className="lg:col-span-2 relative overflow-hidden rounded-[2.5rem] bg-gradient-to-br from-sage-800 via-sage-900 to-sage-950 p-7 md:p-10 text-white shadow-[0_24px_48px_-8px_rgba(20,40,20,0.3)]">
+          {/* Decorative blobs */}
+          <div className="absolute -top-16 -right-16 w-56 h-56 bg-white/5 rounded-full blur-3xl pointer-events-none" />
+          <div className="absolute bottom-0 left-0 w-40 h-40 bg-rose-500/10 rounded-full blur-3xl pointer-events-none" />
+
+          <div className="relative z-10 flex flex-col h-full gap-6">
+            <div className="flex items-start justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-2xl bg-white/10 backdrop-blur border border-white/10 flex items-center justify-center">
+                  <TrendingDown className="w-6 h-6 text-rose-300" />
                 </div>
-                <button
-                  type="button"
-                  onClick={() => setHideBalance(!hideBalance)}
-                  className="w-10 h-10 flex items-center justify-center rounded-xl bg-white/10 hover:bg-white/20 transition-all border border-white/10 active:scale-95 text-white/80 hover:text-white"
-                  title={hideBalance ? "Tampilkan Saldo" : "Sembunyikan Saldo"}
-                >
-                  {hideBalance ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-                </button>
+                <div>
+                  <p className="text-[9px] font-bold uppercase tracking-[0.25em] text-white/50 mb-0.5">Total Pengeluaran</p>
+                  <p className="text-xs font-semibold text-white/70">{format(now, 'MMMM yyyy', { locale: id })}</p>
+                </div>
               </div>
 
-              <div className="space-y-3">
-                <div className="font-mono text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold tracking-tighter drop-shadow-md leading-none">
-                  {hideBalance ? 'Rp ••••••' : formatRupiah(allTimeBalance)}
-                </div>
-                {balance !== allTimeBalance && (
-                  <div className="flex items-center gap-2 text-white/50 text-[10px] font-bold uppercase tracking-widest bg-white/10 w-fit px-4 py-1.5 rounded-full border border-white/10">
-                    <Sparkles className="w-3 h-3" />
-                    <span>Selisih bulan ini: {balance >= 0 ? '+' : ''}{hideBalance ? 'Rp ••••••' : formatRupiah(balance)}</span>
-                  </div>
-                )}
-              </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-8 pt-6 md:pt-8 border-t border-white/10">
-              <div className="flex md:flex-col items-center md:items-start justify-between md:justify-start gap-2 md:space-y-2">
-                <div className="flex items-center gap-2">
-                  <div className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-                  <span className="text-[10px] md:text-xs font-bold uppercase tracking-widest text-white/50">Income</span>
+            <div>
+              <div className="font-mono text-4xl sm:text-5xl md:text-6xl font-black tracking-tighter leading-none">
+                  {formatRupiah(totalExpense)}
                 </div>
-                <div className="font-mono text-base sm:text-xl md:text-2xl font-bold text-emerald-300">
-                  {hideBalance ? 'Rp ••••••' : formatRupiah(totalIncome)}
-                </div>
+              {totalExpense > 0 && (
+                <p className="text-xs text-white/40 font-medium mt-2">
+                  dari {pieData.length} kategori pengeluaran bulan ini
+                </p>
+              )}
+            </div>
+
+            {/* Top category chip */}
+            {topCategory && (
+              <div className="flex items-center gap-2 w-fit bg-white/10 border border-white/10 rounded-2xl px-4 py-2.5">
+                <div className="w-2 h-2 rounded-full bg-rose-300" />
+                <span className="text-[10px] font-bold text-white/70 uppercase tracking-wider">Terbesar:</span>
+                <span className="text-xs font-black text-white">{topCategory.name}</span>
+                <span className="text-[10px] font-bold text-rose-300 ml-1">{((topCategory.value / totalExpense) * 100).toFixed(0)}%</span>
               </div>
-              <div className="flex md:flex-col items-center md:items-start justify-between md:justify-start gap-2 md:space-y-2 md:border-l md:border-white/10 md:pl-8">
-                <div className="flex items-center gap-2">
-                  <div className="w-1.5 h-1.5 rounded-full bg-rose-400" />
-                  <span className="text-[10px] md:text-xs font-bold uppercase tracking-widest text-white/50">Expense</span>
-                </div>
-                <div className="font-mono text-base sm:text-xl md:text-2xl font-bold text-rose-300">
-                  {hideBalance ? 'Rp ••••••' : formatRupiah(totalExpense)}
-                </div>
+            )}
+          </div>
+        </div>
+
+        {/* Quick Stats Column */}
+        <div className="flex flex-row lg:flex-col gap-4">
+          {/* Kategori */}
+          <div className="flex-1 lg:flex-none bg-white rounded-[2rem] border border-sage-50 shadow-xl shadow-sage-900/[0.04] p-5 flex flex-col justify-between gap-3">
+            <div className="flex items-center justify-between">
+              <div className="w-10 h-10 rounded-xl bg-violet-50 flex items-center justify-center">
+                <Receipt className="w-5 h-5 text-violet-500" />
               </div>
+              <span className="text-[8px] font-bold uppercase tracking-wider text-sage-400">Bulan ini</span>
+            </div>
+            <div>
+              <p className="font-mono text-2xl font-black text-sage-900">{pieData.length}</p>
+              <p className="text-xs text-sage-400 font-semibold mt-0.5">Kategori aktif</p>
             </div>
           </div>
-        </motion.div>
-      </div>
 
-      {/* Monthly Allocation Plan */}
-      <motion.div variants={itemVariants}>
-        <MonthlyAllocationTable hideActions={true} hideBalance={hideBalance} />
+          {/* Link to Transactions */}
+          <Link to="/transactions" className="flex-1 lg:flex-none group bg-gradient-to-br from-rose-50 to-white rounded-[2rem] border border-rose-100/60 shadow-xl shadow-rose-900/[0.04] p-5 flex flex-col justify-between gap-3 hover:shadow-rose-200/50 transition-all">
+            <div className="flex items-center justify-between">
+              <div className="w-10 h-10 rounded-xl bg-rose-100 flex items-center justify-center group-hover:scale-110 transition-transform">
+                <History className="w-5 h-5 text-rose-500" />
+              </div>
+              <ArrowRight className="w-4 h-4 text-rose-300 group-hover:translate-x-0.5 transition-transform" />
+            </div>
+            <div>
+              <p className="font-mono text-2xl font-black text-rose-600">{recentTx.length}</p>
+              <p className="text-xs text-rose-400 font-semibold mt-0.5">Transaksi terbaru</p>
+            </div>
+          </Link>
+        </div>
       </motion.div>
 
-      {/* Charts & Trends Row */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Category Visual (Pie Chart & Legend) */}
-        <motion.div variants={itemVariants} className="lg:col-span-2 bg-white rounded-[3rem] p-8 md:p-10 border border-sage-50 shadow-xl shadow-sage-900/[0.03] flex flex-col">
-          <div className="mb-6 md:mb-8">
-            <h3 className="font-display text-xl sm:text-2xl text-sage-900 mb-1">Pengeluaran Bulan Ini</h3>
-            <p className="text-xs sm:text-sm text-sage-400 font-medium">Distribusi berdasarkan kategori</p>
+      {/* ── Charts & Recent ── */}
+      <div className="grid grid-cols-1 lg:grid-cols-5 gap-4 md:gap-5">
+
+        {/* Pie Chart */}
+        <motion.div
+          variants={itemVariants}
+          className="lg:col-span-3 bg-white rounded-[2.5rem] p-6 md:p-8 border border-sage-50 shadow-xl shadow-sage-900/[0.03] flex flex-col"
+        >
+          <div className="flex items-center justify-between mb-6">
+            <div>
+              <h3 className="font-display text-xl text-sage-900 leading-none mb-1">Distribusi Pengeluaran</h3>
+              <p className="text-xs text-sage-400 font-medium">{format(now, 'MMMM yyyy', { locale: id })}</p>
+            </div>
           </div>
 
           {pieData.length > 0 ? (
-            <div className="flex flex-col md:flex-row items-center gap-8 md:gap-12 flex-1">
-              <div className="relative w-full md:w-1/2 aspect-square max-h-[280px]">
+            <div className="flex flex-col sm:flex-row items-center gap-6 flex-1">
+              {/* Donut */}
+              <div className="relative w-full sm:w-[200px] h-[200px] flex-shrink-0">
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
-                    <Pie data={pieData} dataKey="value" cx="50%" cy="50%" innerRadius="65%" outerRadius="90%" strokeWidth={0} paddingAngle={4}>
+                    <Pie
+                      data={pieData}
+                      dataKey="value"
+                      cx="50%"
+                      cy="50%"
+                      innerRadius="62%"
+                      outerRadius="88%"
+                      strokeWidth={0}
+                      paddingAngle={3}
+                    >
                       {pieData.map((_, i) => (
-                        <Cell key={i} fill={COLORS[i % COLORS.length]} className="focus:outline-none hover:opacity-80 transition-opacity cursor-pointer" />
+                        <Cell key={i} fill={COLORS[i % COLORS.length]} className="focus:outline-none" />
                       ))}
                     </Pie>
                     <Tooltip content={<CustomTooltip />} />
                   </PieChart>
                 </ResponsiveContainer>
-                <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none p-4 text-center">
-                  <span className="text-[10px] font-bold text-sage-400 uppercase tracking-widest mb-1">Total Keluar</span>
-                  <span className="text-xl md:text-2xl font-bold text-sage-900 tracking-tight leading-none">
+                <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                  <span className="text-[9px] font-bold text-sage-400 uppercase tracking-widest">Total</span>
+                  <span className="font-mono text-base font-black text-sage-900 leading-tight">
                     {formatRupiah(totalExpense)}
                   </span>
                 </div>
               </div>
 
-              <div className="w-full md:w-1/2 flex flex-col gap-3 max-h-[280px] overflow-y-auto pr-2 scrollbar-hide">
+              {/* Legend */}
+              <div className="flex-1 w-full space-y-2 max-h-[200px] overflow-y-auto scrollbar-hide">
                 {pieData.map((entry, i) => (
-                  <div key={i} className="flex items-center justify-between p-3 sm:p-4 rounded-2xl bg-sage-50/50 hover:bg-sage-50 transition-colors border border-sage-100/30">
-                    <div className="flex items-center gap-2 sm:gap-3">
-                      <div className="w-3.5 h-3.5 rounded-full flex-shrink-0" style={{ backgroundColor: COLORS[i % COLORS.length] }} />
-                      <span className="font-bold text-sage-900 text-xs sm:text-sm">{entry.name}</span>
+                  <div key={i} className="flex items-center justify-between group hover:bg-sage-50 rounded-xl px-3 py-2 transition-colors">
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: COLORS[i % COLORS.length] }} />
+                      <span className="font-semibold text-sage-800 text-xs truncate">{entry.name}</span>
                     </div>
-                    <div className="flex flex-col items-end">
-                      <span className="font-mono text-xs sm:text-sm font-black text-sage-900">{formatRupiah(entry.value)}</span>
-                      <span className="text-[9px] sm:text-[10px] font-bold text-sage-400 uppercase tracking-wider mt-0.5">
-                        {((entry.value / totalExpense) * 100).toFixed(1)}%
+                    <div className="flex items-center gap-2 flex-shrink-0 ml-2">
+                      <span className="text-[9px] font-bold text-sage-400 bg-sage-100 px-1.5 py-0.5 rounded-full">
+                        {((entry.value / totalExpense) * 100).toFixed(0)}%
+                      </span>
+                      <span className="font-mono text-xs font-black text-sage-900">
+                        {formatRupiah(entry.value)}
                       </span>
                     </div>
                   </div>
@@ -279,79 +298,108 @@ export default function Dashboard() {
               </div>
             </div>
           ) : (
-            <div className="flex flex-col items-center justify-center flex-1 py-12 text-sage-300 bg-sage-50/50 rounded-[2rem] border border-dashed border-sage-100">
-              <Inbox className="w-12 h-12 mb-4 text-sage-200" />
-              <p className="font-bold text-sage-900 mb-1">Belum Ada Pengeluaran</p>
-              <p className="text-sm font-medium text-sage-500 text-center px-4">Transaksi pengeluaranmu akan muncul di sini.</p>
+            <div className="flex flex-col items-center justify-center flex-1 py-10 text-sage-300 bg-sage-50/50 rounded-[1.5rem] border border-dashed border-sage-100">
+              <Inbox className="w-10 h-10 mb-3 text-sage-200" />
+              <p className="font-bold text-sage-700 text-sm mb-1">Belum Ada Pengeluaran</p>
+              <p className="text-xs font-medium text-sage-400 text-center px-4">Catat pengeluaran pertamamu hari ini.</p>
             </div>
           )}
         </motion.div>
 
-        {/* Quick History List */}
-        <motion.div variants={itemVariants} className="bg-white rounded-[2.5rem] md:rounded-[3rem] p-6 md:p-10 border border-sage-50 shadow-xl shadow-sage-900/[0.03]">
-          <div className="flex items-center justify-between mb-8">
+        {/* Recent Activity */}
+        <motion.div
+          variants={itemVariants}
+          className="lg:col-span-2 bg-white rounded-[2.5rem] p-6 md:p-8 border border-sage-50 shadow-xl shadow-sage-900/[0.03] flex flex-col"
+        >
+          <div className="flex items-center justify-between mb-6">
             <div>
-              <h3 className="font-display text-xl sm:text-2xl text-sage-900 mb-1">Aktivitas</h3>
-              <p className="text-xs sm:text-sm text-sage-400 font-medium">Transaksi terbaru</p>
+              <h3 className="font-display text-xl text-sage-900 leading-none mb-1">Aktivitas</h3>
+              <p className="text-xs text-sage-400 font-medium">Pengeluaran terbaru</p>
             </div>
-            <Link to="/transactions" className="w-10 h-10 bg-sage-50 rounded-xl flex items-center justify-center text-sage-600 hover:bg-sage-100 transition-colors">
-              <ArrowRight className="w-5 h-5" />
+            <Link
+              to="/transactions"
+              className="flex items-center gap-1 text-[9px] font-bold uppercase tracking-wider text-sage-500 hover:text-sage-700 transition-colors group"
+            >
+              Semua
+              <ArrowRight className="w-3 h-3 group-hover:translate-x-0.5 transition-transform" />
             </Link>
           </div>
 
-          <div className="space-y-6">
+          <div className="flex-1 space-y-1">
             {loading ? (
-              <div className="space-y-6">
+              <div className="space-y-3">
                 {[1, 2, 3, 4].map(i => (
-                  <div key={i} className="flex items-center gap-4 animate-pulse">
-                    <div className="w-12 h-12 bg-sage-50 rounded-2xl" />
+                  <div key={i} className="flex items-center gap-3 p-2 animate-pulse">
+                    <div className="w-10 h-10 bg-sage-100 rounded-2xl flex-shrink-0" />
                     <div className="flex-1 space-y-2">
-                      <div className="h-4 bg-sage-50 rounded w-2/3" />
-                      <div className="h-3 bg-sage-50 rounded w-1/3" />
+                      <div className="h-3 bg-sage-100 rounded-full w-3/4" />
+                      <div className="h-2.5 bg-sage-100 rounded-full w-1/2" />
                     </div>
+                    <div className="h-3 bg-rose-50 rounded-full w-16" />
                   </div>
                 ))}
               </div>
             ) : recentTx.length === 0 ? (
-              <div className="text-center py-12 space-y-4">
-                <History className="w-10 h-10 mx-auto text-sage-200" />
-                <p className="text-sm text-sage-400 font-medium leading-relaxed">Belum ada transaksi yang dicatat.</p>
+              <div className="flex flex-col items-center justify-center py-10 text-center">
+                <History className="w-8 h-8 mx-auto text-sage-200 mb-3" />
+                <p className="text-xs text-sage-400 font-medium">Belum ada transaksi.</p>
               </div>
             ) : (
-              recentTx.slice(0, 4).map(tx => {
+              recentTx.map((tx, idx) => {
                 const cat = getCategoryInfo(tx.category);
                 const isMine = tx.userId === userProfile?.uid || (tx.addedBy === userProfile?.displayName && !tx.userId);
+                const color = COLORS[idx % COLORS.length];
 
                 return (
-                  <div key={tx.id} className="group flex items-center gap-3 sm:gap-4">
-                    <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-2xl bg-sage-50 flex items-center justify-center text-xl sm:text-2xl flex-shrink-0 group-hover:scale-110 transition-transform duration-500">
-                      <cat.icon className="w-5 h-5 sm:w-6 sm:h-6 text-sage-500 group-hover:text-sage-700" />
+                  <motion.div
+                    key={tx.id}
+                    initial={{ opacity: 0, x: -10 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: idx * 0.05 }}
+                    className="group flex items-center gap-3 p-2.5 rounded-2xl hover:bg-sage-50 transition-all cursor-default"
+                  >
+                    <div
+                      className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 transition-transform duration-300 group-hover:scale-105"
+                      style={{ backgroundColor: `${color}1a` }}
+                    >
+                      <cat.icon className="w-4.5 h-4.5" style={{ color }} />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-0.5">
-                        <div className="font-bold text-sage-900 text-xs sm:text-sm truncate leading-tight">
-                          {cat.label}
-                        </div>
-                        <div className={`text-[8px] font-bold px-2 py-0.5 rounded-full uppercase tracking-tighter ${isMine ? 'bg-sage-100 text-sage-700' : 'bg-rose-100 text-rose-600'}`}>
-                          {isMine ? 'Saya' : (userProfile?.partnerName || tx.addedBy || 'Pasangan')}
-                        </div>
+                      <p className="font-bold text-sage-900 text-xs truncate">{cat.label}</p>
+                      <div className="flex items-center gap-1.5 mt-0.5">
+                        {tx.description && (
+                          <p className="text-[9px] text-sage-400 italic truncate max-w-[80px]">"{tx.description}"</p>
+                        )}
+                        <span className={`text-[8px] font-black px-1.5 py-0.5 rounded-full uppercase tracking-tight ${isMine ? 'bg-sage-100 text-sage-600' : 'bg-rose-100 text-rose-500'}`}>
+                          {isMine ? 'Saya' : (userProfile?.partnerName || 'Pasangan')}
+                        </span>
                       </div>
-                      {tx.description && (
-                        <div className="text-[9px] sm:text-[10px] text-sage-500 italic truncate mb-1">
-                          "{tx.description}"
-                        </div>
-                      )}
                     </div>
-                    <div className={`font-mono font-bold text-xs sm:text-sm md:text-base flex-shrink-0 ${tx.type === 'income' ? 'text-emerald-500' : 'text-rose-500'}`}>
-                      {tx.type === 'income' ? '+' : '-'}{formatRupiah(tx.amount)}
-                    </div>
-                  </div>
+                    <span className="font-mono text-xs font-black text-rose-500 flex-shrink-0">
+                      -{formatRupiah(tx.amount)}
+                    </span>
+                  </motion.div>
                 );
               })
             )}
           </div>
+
+          {recentTx.length > 0 && (
+            <Link
+              to="/transactions"
+              className="mt-4 w-full flex items-center justify-center gap-2 py-3 rounded-2xl bg-sage-50 text-sage-600 text-xs font-bold hover:bg-sage-100 transition-colors border border-sage-100"
+            >
+              Lihat Semua Transaksi
+              <ArrowRight className="w-3.5 h-3.5" />
+            </Link>
+          )}
         </motion.div>
       </div>
+
+      {/* ── Monthly Allocation ── */}
+      <motion.div variants={itemVariants}>
+        <MonthlyAllocationTable hideActions={true} hideBalance={false} />
+      </motion.div>
 
       <AnimatePresence>
         {showModal && <TransactionModal onClose={() => setShowModal(false)} />}

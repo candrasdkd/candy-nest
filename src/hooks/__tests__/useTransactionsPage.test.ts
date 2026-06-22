@@ -49,7 +49,7 @@ describe('useTransactionsPage', () => {
   it('seharusnya menghitung total income dan expense dengan benar', () => {
     const { result } = renderHook(() => useTransactionsPage());
     
-    expect(result.current.totalIncome).toBe(100000);
+    expect(result.current.totalIncome).toBe(0);
     expect(result.current.totalExpense).toBe(250000);
   });
 
@@ -78,8 +78,8 @@ describe('useTransactionsPage', () => {
   it('seharusnya mengelompokkan transaksi berdasarkan tanggal', () => {
     const { result } = renderHook(() => useTransactionsPage());
     
-    // Ada 3 tanggal berbeda: 01, 02, 10
-    expect(result.current.grouped).toHaveLength(3);
+    // Ada 2 tanggal berbeda setelah menyaring pemasukan: 02, 10
+    expect(result.current.grouped).toHaveLength(2);
     expect(result.current.grouped[0][0]).toBe('2026-04-10'); // Urutan terbaru
   });
 });

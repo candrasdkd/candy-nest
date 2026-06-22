@@ -8,7 +8,6 @@ import Dashboard from './pages/Dashboard';
 import Transactions from './pages/Transactions';
 import Settings from './pages/Settings';
 import Documents from './pages/Documents';
-import SavingsPots from './pages/SavingsPots';
 import Notes from './pages/Notes';
 import Planning from './pages/Planning';
 import OfflineFallback from './pages/OfflineFallback';
@@ -48,7 +47,7 @@ function AppRoutes() {
       <Route path="/register" element={<PublicRoute><Register /></PublicRoute>} />
       <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
       <Route path="/transactions" element={<ProtectedRoute><Transactions /></ProtectedRoute>} />
-      <Route path="/savings" element={<ProtectedRoute><SavingsPots /></ProtectedRoute>} />
+
       <Route path="/documents" element={<ProtectedRoute><Documents /></ProtectedRoute>} />
       <Route path="/notes" element={<ProtectedRoute><Notes /></ProtectedRoute>} />
       <Route path="/planning" element={<ProtectedRoute><Planning /></ProtectedRoute>} />

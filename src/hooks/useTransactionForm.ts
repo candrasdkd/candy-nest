@@ -1,33 +1,25 @@
 import { useState, useEffect, useRef } from 'react';
 import { useTransactions } from '../hooks/useTransactions';
-import { TransactionType, Category, INCOME_CATEGORIES, EXPENSE_CATEGORIES, MAX_AMOUNT, parseRupiah, Transaction } from '../types';
+import { Category, EXPENSE_CATEGORIES, MAX_AMOUNT, parseRupiah, Transaction } from '../types';
 import { format } from 'date-fns';
-import { useSavingsStore } from '../store/useSavingsStore';
-import { useAuthStore } from '../store/useAuthStore';
 
 export function useTransactionForm(onClose: () => void, transactionToEdit?: Transaction | null) {
   const { addTransaction, updateTransaction } = useTransactions();
-  const { pots, initPots, depositToPot, withdrawFromPot } = useSavingsStore();
-  const coupleId = useAuthStore(s => s.userProfile?.coupleId);
-  const [type, setType] = useState<TransactionType>(transactionToEdit?.type || 'expense');
   const [amount, setAmount] = useState(transactionToEdit ? (transactionToEdit.amount).toLocaleString('id-ID') : '');
   const [category, setCategory] = useState<Category>(transactionToEdit?.category || 'makan');
   const [description, setDescription] = useState(transactionToEdit?.description || '');
   const [date, setDate] = useState(transactionToEdit?.date || format(new Date(), 'yyyy-MM-dd'));
-  const [selectedPotId, setSelectedPotId] = useState<string>(transactionToEdit?.relatedPotId || '');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const amountRef = useRef<HTMLInputElement>(null);
 
-  const categories = type === 'income' ? INCOME_CATEGORIES : EXPENSE_CATEGORIES;
-  const isExpense = type === 'expense';
-
-  useEffect(() => {
-    if (coupleId) {
-      const unsub = initPots();
-      return () => unsub();
-    }
-  }, [coupleId, initPots]);
+  const type = 'expense';
+  const setType = () => {};
+  const selectedPotId = '';
+  const setSelectedPotId = () => {};
+  const pots: any[] = [];
+  const categories = EXPENSE_CATEGORIES;
+  const isExpense = true;
 
   useEffect(() => {
     setTimeout(() => amountRef.current?.focus(), 400);
@@ -57,22 +49,14 @@ export function useTransactionForm(onClose: () => void, transactionToEdit?: Tran
     try {
       if (transactionToEdit) {
         await updateTransaction(transactionToEdit.id, {
-          type,
+          type: 'expense',
           category,
           amount: numAmount,
           description: description.trim(),
           date,
         });
       } else {
-        if (selectedPotId) {
-          if (type === 'income') {
-            await depositToPot(selectedPotId, numAmount, description, date, category);
-          } else {
-            await withdrawFromPot(selectedPotId, numAmount, description, date, category);
-          }
-        } else {
-          await addTransaction({ type, category, amount: numAmount, description, date });
-        }
+        await addTransaction({ type: 'expense', category, amount: numAmount, description, date });
       }
       onClose();
     } catch (err: any) {

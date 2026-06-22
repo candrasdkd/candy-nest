@@ -2,13 +2,9 @@ import { useMemo, useState, useEffect } from 'react';
 import { startOfMonth, endOfMonth, isWithinInterval, parseISO, format } from 'date-fns';
 import { id } from 'date-fns/locale';
 import { Transaction, getCategoryInfo, formatRupiah } from '../types';
-import { useSavingsStore } from '../store/useSavingsStore';
-import { useAuthStore } from '../store/useAuthStore';
 
 export function useDashboardStats(transactions: Transaction[], date: Date = new Date()) {
   const [hideBalance, setHideBalance] = useState(true);
-  const { pots, initPots } = useSavingsStore();
-  const { userProfile } = useAuthStore();
 
   // Hapus badge notifikasi saat user membuka Dashboard
   useEffect(() => {
@@ -17,17 +13,12 @@ export function useDashboardStats(transactions: Transaction[], date: Date = new 
     }
   }, []);
 
-  // Subscribe to savings pots
-  useEffect(() => {
-    const unsub = initPots();
-    return unsub;
-  }, [initPots, userProfile?.coupleId]);
-
-  // 1. Filter transaksi bulan ini
+  // 1. Filter transaksi pengeluaran bulan ini
   const thisMonthTx = useMemo(() => {
     const monthStart = startOfMonth(date);
     const monthEnd = endOfMonth(date);
     return transactions.filter(tx => {
+      if (tx.type !== 'expense') return false;
       try {
         const txDate = parseISO(tx.date);
         return isWithinInterval(txDate, { start: monthStart, end: monthEnd });
@@ -37,32 +28,15 @@ export function useDashboardStats(transactions: Transaction[], date: Date = new 
     });
   }, [transactions, date]);
 
-  // 2. Hitung total pemasukan, pengeluaran, saldo (Hanya bulan ini)
-  const { totalIncome, totalExpense, balance } = useMemo(() => {
-    let income = 0;
-    let expense = 0;
-
-    thisMonthTx.forEach(tx => {
-      if (tx.type === 'income') income += tx.amount;
-      else if (tx.type === 'expense') expense += tx.amount;
-    });
-
-    return {
-      totalIncome: income,
-      totalExpense: expense,
-      balance: income - expense
-    };
+  // 2. Hitung total pengeluaran (Hanya bulan ini)
+  const totalExpense = useMemo(() => {
+    return thisMonthTx.reduce((sum, tx) => sum + tx.amount, 0);
   }, [thisMonthTx]);
-
-  // 2.1 Hitung Total Saldo berdasarkan jumlah total seluruh Pos Tabungan
-  const allTimeBalance = useMemo(() => {
-    return pots.reduce((sum, pot) => sum + pot.currentBalance, 0);
-  }, [pots]);
 
   // 4. Pie chart data pengeluaran per kategori bulan ini
   const pieData = useMemo(() => {
     const grouped: Record<string, number> = {};
-    thisMonthTx.filter(t => t.type === 'expense').forEach(t => {
+    thisMonthTx.forEach(t => {
       grouped[t.category] = (grouped[t.category] || 0) + t.amount;
     });
 
@@ -78,16 +52,15 @@ export function useDashboardStats(transactions: Transaction[], date: Date = new 
       });
   }, [thisMonthTx]);
 
-  // 5. Transaksi terbaru (5 transaksi)
-  const recentTx = useMemo(() => transactions.slice(0, 5), [transactions]);
+  // 5. Transaksi terbaru (5 transaksi) - Hanya ambil pengeluaran
+  const recentTx = useMemo(() => {
+    return transactions.filter(t => t.type === 'expense').slice(0, 5);
+  }, [transactions]);
 
   // 6. Fungsi untuk membagikan laporan
   const handleShareStats = async () => {
     const text = `📊 Laporan Keuangan CandyNest (${format(date, 'MMMM yyyy', { locale: id })})\n\n` +
-      `💰 Pemasukan: ${formatRupiah(totalIncome)}\n` +
-      `💸 Pengeluaran: ${formatRupiah(totalExpense)}\n` +
-      `🏦 Saldo Bulan Ini: ${formatRupiah(balance)}\n` +
-      `✨ Total Tabungan: ${formatRupiah(allTimeBalance)}\n\n` +
+      `💸 Pengeluaran: ${formatRupiah(totalExpense)}\n\n` +
       `Ayo tetap hemat dan raih impian keluarga! ❤️`;
 
     if (navigator.share) {
@@ -109,10 +82,10 @@ export function useDashboardStats(transactions: Transaction[], date: Date = new 
 
   return {
     thisMonthTx,
-    totalIncome,
+    totalIncome: 0,
     totalExpense,
-    balance,
-    allTimeBalance,
+    balance: -totalExpense,
+    allTimeBalance: 0,
     pieData,
     recentTx,
     hideBalance,

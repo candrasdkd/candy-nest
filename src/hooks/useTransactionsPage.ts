@@ -10,14 +10,15 @@ export function useTransactionsPage() {
   const { transactions, loading, error, deleteTransaction } = useTransactions();
   const [showModal, setShowModal] = useState(false);
   const [search, setSearch] = useState('');
-  const [filterType, setFilterType] = useState<TransactionType | 'all'>('all');
+  const filterType = 'expense';
+  const setFilterType = (_val?: any) => {};
   const [startDate, setStartDate] = useState(format(startOfMonth(new Date()), 'yyyy-MM-dd'));
   const [endDate, setEndDate] = useState(format(endOfMonth(new Date()), 'yyyy-MM-dd'));
   const { confirm, close, setLoading: setConfirmLoading } = useConfirmStore();
 
   const filtered = useMemo(() => {
     return transactions.filter(tx => {
-      if (filterType !== 'all' && tx.type !== filterType) return false;
+      if (tx.type !== 'expense') return false;
       if (startDate && tx.date < startDate) return false;
       if (endDate && tx.date > endDate) return false;
 
@@ -32,15 +33,12 @@ export function useTransactionsPage() {
       }
       return true;
     });
-  }, [transactions, filterType, startDate, endDate, search]);
+  }, [transactions, startDate, endDate, search]);
 
-  const totalIncome = useMemo(() => 
-    filtered.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0),
-    [filtered]
-  );
+  const totalIncome = 0;
   
   const totalExpense = useMemo(() => 
-    filtered.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0),
+    filtered.reduce((s, t) => s + t.amount, 0),
     [filtered]
   );
 
@@ -72,7 +70,6 @@ export function useTransactionsPage() {
 
   const resetFilters = () => {
     setSearch('');
-    setFilterType('all');
     setStartDate(format(startOfMonth(new Date()), 'yyyy-MM-dd'));
     setEndDate(format(endOfMonth(new Date()), 'yyyy-MM-dd'));
   };

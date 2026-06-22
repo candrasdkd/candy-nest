@@ -119,24 +119,7 @@ export default function TransactionModal({ onClose, transactionToEdit }: Props) 
               </button>
             </div>
 
-            {/* Type Toggle */}
-            <div className="grid grid-cols-2 gap-1.5 p-1 bg-sage-50 rounded-[1.2rem] border border-sage-100">
-              {[
-                { val: 'expense', label: 'Keluar', icon: TrendingDown, color: 'text-rose-500' },
-                { val: 'income', label: 'Masuk', icon: TrendingUp, color: 'text-emerald-600' },
-              ].map(({ val, label, icon: Icon, color }) => (
-                <button
-                  key={val}
-                  type="button"
-                  disabled={loading}
-                  onClick={() => { setType(val as TransactionType); setCategory(val === 'expense' ? 'makan' : 'gaji'); }}
-                  className={`flex items-center justify-center gap-2 py-2.5 rounded-xl text-[10px] font-bold uppercase tracking-wider transition-all duration-300 ${type === val ? `bg-white shadow-md ${color}` : 'text-sage-400 hover:text-sage-600'}`}
-                >
-                  <Icon className="w-3.5 h-3.5" />
-                  {label}
-                </button>
-              ))}
-            </div>
+
 
             {/* Amount Input (Mandatory & Sticky) */}
             <div className={`rounded-2xl p-4 ${theme.light} border border-theme-border transition-colors duration-500`}>
@@ -208,26 +191,7 @@ export default function TransactionModal({ onClose, transactionToEdit }: Props) 
                 />
               </div>
 
-              {!transactionToEdit && pots.length > 0 && (
-                <div className="space-y-1.5">
-                  <label className="flex items-center gap-2 text-[9px] font-bold text-sage-400 uppercase tracking-widest px-1">
-                    <Wallet className="w-3 h-3" /> Tautkan ke Pos (Opsional)
-                  </label>
-                  <select
-                    value={selectedPotId}
-                    disabled={loading}
-                    onChange={(e) => setSelectedPotId(e.target.value)}
-                    className="w-full px-4 py-3.5 bg-sage-50 border border-sage-100 rounded-xl text-sage-900 focus:outline-none transition-all font-bold cursor-pointer text-base md:text-sm appearance-none"
-                  >
-                    <option value="">Tidak ditautkan</option>
-                    {pots.map(pot => (
-                      <option key={pot.id} value={pot.id}>
-                        {pot.emoji} {pot.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              )}
+
             </div>
           </div>
 

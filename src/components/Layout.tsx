@@ -25,7 +25,6 @@ import GlobalSearchModal from './GlobalSearchModal';
 const navItems = [
   { to: '/', icon: LayoutDashboard, label: 'Dashboard' },
   { to: '/transactions', icon: ArrowLeftRight, label: 'Transaksi' },
-  { to: '/savings', icon: Wallet, label: 'Pos' },
   { to: '/documents', icon: FileText, label: 'Dokumen' },
   { to: '/notes', icon: StickyNote, label: 'Catatan' },
   { to: '/planning', icon: Sparkles, label: 'Perencanaan' },

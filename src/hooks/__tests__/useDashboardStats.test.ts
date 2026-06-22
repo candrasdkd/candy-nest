@@ -20,11 +20,11 @@ describe('useDashboardStats', () => {
     const { result } = renderHook(() => useDashboardStats(mockTransactions, mockDate));
 
     // Ekspektasi
-    expect(result.current.totalIncome).toBe(5000000);
+    expect(result.current.totalIncome).toBe(0);
     expect(result.current.totalExpense).toBe(1500000);
-    expect(result.current.balance).toBe(3500000); // 5000000 - 1500000
+    expect(result.current.balance).toBe(-1500000);
     
-    // Pastikan hanya 2 transaksi yang terbaca untuk bulan April
-    expect(result.current.thisMonthTx).toHaveLength(2);
+    // Pastikan hanya 1 transaksi pengeluaran yang terbaca untuk bulan April
+    expect(result.current.thisMonthTx).toHaveLength(1);
   });
 });

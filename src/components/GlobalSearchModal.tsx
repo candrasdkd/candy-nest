@@ -9,7 +9,6 @@ import { useAuthStore } from '../store/useAuthStore';
 import { useNotes } from '../hooks/useNotes';
 import { useDocuments } from '../hooks/useDocuments';
 import { useDataStore } from '../store/useDataStore';
-import { useSavingsStore } from '../store/useSavingsStore';
 import { formatRupiah, getCategoryInfo } from '../types';
 import { format, parseISO } from 'date-fns';
 import { id as localeId } from 'date-fns/locale';
@@ -32,10 +31,8 @@ const staticActions: StaticAction[] = [
   { id: 'add-tx', label: 'Tambah Transaksi', keywords: 'keuangan masuk keluar beli bayar belanja baru tambah', icon: Plus, path: '/transactions?action=add', color: 'text-emerald-600 bg-emerald-50 border-emerald-100' },
   { id: 'add-note', label: 'Tambah Catatan Baru', keywords: 'memo penting resep nulis list info ide', icon: StickyNote, path: '/notes?action=add', color: 'text-rose-600 bg-rose-50 border-rose-100' },
   { id: 'add-doc', label: 'Unggah Dokumen KTP/Struk', keywords: 'scan ocr pdf ktp sim npwp invoice berkas', icon: FileText, path: '/documents?action=add', color: 'text-blue-600 bg-blue-50 border-blue-100' },
-  { id: 'add-pot', label: 'Buat Pos Tabungan Baru', keywords: 'saving amplop target celengan tabung pos', icon: Wallet, path: '/savings?action=add', color: 'text-sage-700 bg-sage-50 border-sage-100' },
   { id: 'go-dashboard', label: 'Buka Dashboard Utama', keywords: 'beranda stats ringkasan home', icon: LayoutIcon, path: '/dashboard', color: 'text-sage-500 bg-sage-50 border-sage-100' },
   { id: 'go-tx', label: 'Lihat Riwayat Transaksi', keywords: 'uang history pengeluaran pemasukan', icon: ArrowUpDown, path: '/transactions', color: 'text-emerald-600 bg-emerald-50 border-emerald-100' },
-  { id: 'go-pots', label: 'Atur Pos Tabungan', keywords: 'alokasi celengan tabung', icon: Wallet, path: '/savings', color: 'text-sage-800 bg-sage-50 border-sage-100' },
   { id: 'go-notes', label: 'Buka Catatan Keluarga', keywords: 'notes ide resep daftar', icon: StickyNote, path: '/notes', color: 'text-rose-600 bg-rose-50 border-rose-100' },
   { id: 'go-docs', label: 'Buka Dokumen Bersama', keywords: 'cloud scanner berkas ocr', icon: FileText, path: '/documents', color: 'text-blue-600 bg-blue-50 border-blue-100' },
   { id: 'go-settings', label: 'Buka Pengaturan Profil', keywords: 'akun pasang hubung ganti password', icon: Settings, path: '/settings', color: 'text-sage-400 bg-sage-50 border-sage-100' },
@@ -50,26 +47,20 @@ export default function GlobalSearchModal({ isOpen, onClose }: GlobalSearchModal
   // Auth and reactive stores subscription
   const coupleId = useAuthStore(s => s.userProfile?.coupleId);
   const initTransactions = useDataStore(s => s.initTransactions);
-  const initPots = useSavingsStore(s => s.initPots);
-
   const transactions = useDataStore(s => s.transactions);
-  const pots = useSavingsStore(s => s.pots);
   
   // Reactively subscribe to notes and documents which fire internally inside hooks on mount
   const { notes } = useNotes();
   const { documents } = useDocuments();
 
-  // Initialize listeners if search is open to make sure store cache is hydrated
   useEffect(() => {
     if (isOpen && coupleId) {
       const unsubTx = initTransactions();
-      const unsubPots = initPots();
       return () => {
         unsubTx();
-        unsubPots();
       };
     }
-  }, [isOpen, coupleId, initTransactions, initPots]);
+  }, [isOpen, coupleId, initTransactions]);
 
   // Focus input on open
   useEffect(() => {
@@ -128,11 +119,7 @@ export default function GlobalSearchModal({ isOpen, onClose }: GlobalSearchModal
     });
   }, [transactions, query, isOpen]);
 
-  // 5. Filter Savings Pots (by name)
-  const filteredPots = useMemo(() => {
-    if (!isOpen || !query) return [];
-    return pots.filter(pot => matches(pot.name, query));
-  }, [pots, query, isOpen]);
+
 
   // Pre-flattened list for seamless arrow navigation
   const flatResults = useMemo(() => {
@@ -142,12 +129,11 @@ export default function GlobalSearchModal({ isOpen, onClose }: GlobalSearchModal
     }
     const results: any[] = [];
     filteredActions.forEach(act => results.push({ type: 'action', id: act.id, data: act }));
-    filteredPots.forEach(pot => results.push({ type: 'pot', id: pot.id, data: pot }));
     filteredTransactions.forEach(tx => results.push({ type: 'transaction', id: tx.id, data: tx }));
     filteredDocuments.forEach(doc => results.push({ type: 'document', id: doc.id, data: doc }));
     filteredNotes.forEach(note => results.push({ type: 'note', id: note.id, data: note }));
     return results;
-  }, [query, filteredActions, filteredPots, filteredTransactions, filteredDocuments, filteredNotes, isOpen]);
+  }, [query, filteredActions, filteredTransactions, filteredDocuments, filteredNotes, isOpen]);
 
   // Re-group for semantic section layout but mapping flat indices
   const sections = useMemo(() => {
@@ -164,14 +150,7 @@ export default function GlobalSearchModal({ isOpen, onClose }: GlobalSearchModal
       });
     }
 
-    const potsList = flatResults.filter(r => r.type === 'pot');
-    if (potsList.length > 0) {
-      secList.push({
-        title: 'Pos Tabungan',
-        type: 'pot',
-        items: potsList.map(item => ({ ...item, absoluteIndex: currentIndex++ }))
-      });
-    }
+
 
     const txs = flatResults.filter(r => r.type === 'transaction');
     if (txs.length > 0) {
@@ -215,8 +194,6 @@ export default function GlobalSearchModal({ isOpen, onClose }: GlobalSearchModal
       navigate(`/documents?id=${item.id}`);
     } else if (item.type === 'transaction') {
       navigate(`/transactions?id=${item.id}`);
-    } else if (item.type === 'pot') {
-      navigate('/savings');
     }
   };
 
@@ -391,11 +368,7 @@ export default function GlobalSearchModal({ isOpen, onClose }: GlobalSearchModal
                                 </div>
                               )}
 
-                              {item.type === 'pot' && (
-                                <div className="w-10 h-10 rounded-xl bg-sage-50 border border-sage-100 flex items-center justify-center text-xl shrink-0">
-                                  {item.data.emoji}
-                                </div>
-                              )}
+
 
                               {item.type === 'transaction' && (
                                 <div className="w-10 h-10 rounded-xl bg-sage-50 border border-sage-100 flex items-center justify-center text-xl shrink-0">
@@ -424,20 +397,7 @@ export default function GlobalSearchModal({ isOpen, onClose }: GlobalSearchModal
                                   <p className="font-bold text-sage-800 text-sm tracking-tight">{item.data.label}</p>
                                 )}
 
-                                {item.type === 'pot' && (
-                                  <div>
-                                    <p className="font-bold text-sage-800 text-sm tracking-tight">{item.data.name}</p>
-                                    <p className="text-[10px] text-sage-400 font-semibold mt-0.5 flex items-center gap-1">
-                                      <span>Terkumpul: {formatRupiah(item.data.currentBalance)}</span>
-                                      {item.data.targetAmount && (
-                                        <>
-                                          <span>·</span>
-                                          <span>Target: {formatRupiah(item.data.targetAmount)}</span>
-                                        </>
-                                      )}
-                                    </p>
-                                  </div>
-                                )}
+
 
                                 {item.type === 'transaction' && (
                                   <div>
@@ -485,11 +445,7 @@ export default function GlobalSearchModal({ isOpen, onClose }: GlobalSearchModal
                                 </span>
                               )}
 
-                              {item.type === 'pot' && (
-                                <span className="font-mono text-xs font-black tracking-tight text-sage-800">
-                                  {formatRupiah(item.data.currentBalance)}
-                                </span>
-                              )}
+
 
                               {/* Quick Go Indicators */}
                               <div className={`w-8 h-8 rounded-lg flex items-center justify-center transition-all ${

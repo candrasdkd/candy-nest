@@ -129,17 +129,7 @@ export default function TransactionDetailModal({ tx, onClose, onEdit, onDelete, 
               </div>
             )}
 
-            {/* Linked Savings Pot if exists */}
-            {tx.relatedPotId && (
-              <div className="flex items-center justify-between text-sm border-t border-dashed border-sage-200/50 pt-3">
-                <span className="text-sage-400 flex items-center gap-2">
-                  <Wallet className="w-4 h-4" /> Pos Terhubung
-                </span>
-                <span className="font-bold text-emerald-700 bg-emerald-50 px-3 py-1 rounded-xl border border-emerald-100/50">
-                  Tersimpan di Pos
-                </span>
-              </div>
-            )}
+
           </div>
 
           {/* Description Block */}

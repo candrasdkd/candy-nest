@@ -1,4 +1,4 @@
-import { DocCategory, OcrField } from '../types/document';
+import { DocCategory, OcrField, FileType } from '../types/document';
 import { FIELD_TEMPLATES } from '../constants/document';
 
 /** Format ukuran byte ke string yang mudah dibaca */
@@ -6,6 +6,59 @@ export function formatFileSize(bytes: number): string {
   if (bytes < 1024) return bytes + ' B';
   if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
   return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+}
+
+/** Deteksi FileType dari MIME type */
+export function getFileType(mimeType: string): FileType {
+  if (mimeType.startsWith('image/')) return 'image';
+  if (mimeType === 'application/pdf') return 'pdf';
+  if (
+    mimeType === 'application/msword' ||
+    mimeType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+  ) return 'word';
+  if (
+    mimeType === 'application/vnd.ms-excel' ||
+    mimeType === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+  ) return 'excel';
+  if (mimeType === 'application/json') return 'json';
+  return 'image'; // fallback
+}
+
+/** Info visual per tipe file */
+export function getFileTypeInfo(fileType: FileType) {
+  const map: Record<FileType, { label: string; emoji: string; color: string; bg: string; ext: string }> = {
+    image: { label: 'Gambar',  emoji: '🖼️',  color: 'text-sage-600',   bg: 'bg-sage-50',    ext: '.jpg' },
+    pdf:   { label: 'PDF',     emoji: '📄',  color: 'text-rose-600',   bg: 'bg-rose-50',    ext: '.pdf' },
+    word:  { label: 'Word',    emoji: '📝',  color: 'text-blue-600',   bg: 'bg-blue-50',    ext: '.docx' },
+    excel: { label: 'Excel',   emoji: '📊',  color: 'text-emerald-600',bg: 'bg-emerald-50', ext: '.xlsx' },
+    json:  { label: 'JSON',    emoji: '🗂️',  color: 'text-violet-600', bg: 'bg-violet-50',  ext: '.json' },
+  };
+  return map[fileType] ?? map.image;
+}
+
+/** MIME types yang diizinkan untuk file non-gambar */
+export const ALLOWED_DOC_MIME_TYPES = [
+  'application/pdf',
+  'application/msword',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'application/vnd.ms-excel',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  'application/json',
+];
+
+export const ALLOWED_IMAGE_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
+
+export const MAX_DOC_SIZE = 10 * 1024 * 1024;  // 10MB untuk non-gambar
+
+/** Validasi file non-gambar: return pesan error atau null jika valid */
+export function validateDocFile(file: File): string | null {
+  if (!ALLOWED_DOC_MIME_TYPES.includes(file.type)) {
+    return `Format "${file.name}" tidak didukung. Gunakan PDF, Word, Excel, atau JSON.`;
+  }
+  if (file.size > MAX_DOC_SIZE) {
+    return `File "${file.name}" melebihi batas 10MB.`;
+  }
+  return null;
 }
 
 /** Kompresi gambar menggunakan Canvas */
@@ -82,3 +135,4 @@ export async function compressImage(file: File, maxSizeKB: number = 300): Promis
     reader.onerror = reject;
   });
 }
+

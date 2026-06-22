@@ -3,6 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence, Variants } from 'framer-motion';
 import { Upload, FileText, ChevronDown, FolderOpen, Loader2, Filter, X, CheckCircle2, Download, User, AlertCircle } from 'lucide-react';
 import { useDocuments, CATEGORY_INFO, DocCategory } from '../hooks/useDocuments';
+import { getFileTypeInfo } from '../utils/document';
 import DocumentUploadModal from '../components/DocumentUploadModal';
 import DocumentDetailModal from '../components/DocumentDetailModal';
 
@@ -247,16 +248,26 @@ export default function Documents() {
                     }`}
                   >
                     <div className="relative h-36 md:h-44 bg-sage-50 overflow-hidden">
-                      {/* Image with smooth zoom on hover */}
-                      <img 
-                        src={safeUrls[0]} 
-                        alt={doc.name} 
-                        className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700 ease-out" 
-                      />
-                      
-                      {/* Gradient Overlays for better contrast */}
-                      <div className="absolute inset-0 bg-gradient-to-t from-sage-900/60 via-sage-900/5 to-sage-900/30 opacity-80 group-hover:opacity-60 transition-opacity duration-500" />
-                      
+                      {/* Thumbnail: gambar atau ikon file */}
+                      {(!doc.fileType || doc.fileType === 'image') ? (
+                        <>
+                          <img 
+                            src={safeUrls[0]} 
+                            alt={doc.name} 
+                            className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700 ease-out" 
+                          />
+                          <div className="absolute inset-0 bg-gradient-to-t from-sage-900/60 via-sage-900/5 to-sage-900/30 opacity-80 group-hover:opacity-60 transition-opacity duration-500" />
+                        </>
+                      ) : (() => {
+                        const ftInfo = getFileTypeInfo(doc.fileType);
+                        return (
+                          <div className={`w-full h-full flex flex-col items-center justify-center gap-2 ${ftInfo.bg} group-hover:brightness-95 transition-all`}>
+                            <span className="text-5xl select-none">{ftInfo.emoji}</span>
+                            <span className={`text-[10px] font-black uppercase tracking-widest ${ftInfo.color}`}>{ftInfo.label}</span>
+                          </div>
+                        );
+                      })()}
+
                       {/* Selection Overlay Tint */}
                       <div className={`absolute inset-0 bg-sage-900/40 transition-all duration-300 ${isSelected ? 'opacity-100' : 'opacity-0'}`} />
 
@@ -271,7 +282,7 @@ export default function Documents() {
                         </div>
                       )}
 
-                      {/* Category Badge - Modern Glassmorphism */}
+                      {/* Category Badge */}
                       <div className="absolute top-3 left-3">
                         <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[10px] font-bold border bg-white/95 shadow-sm ${info.color.replace('bg-', 'text-')}`}>
                           <span className="text-sm leading-none">{info.emoji}</span>
@@ -287,6 +298,7 @@ export default function Documents() {
                             e.stopPropagation();
                             setDownloadingId(doc.id);
                             const urls = doc.imageUrls || [doc.imageUrl!];
+                            const ftInfo = getFileTypeInfo(doc.fileType ?? 'image');
                             try {
                               for (let i = 0; i < urls.length; i++) {
                                 try {
@@ -295,7 +307,9 @@ export default function Documents() {
                                   const blobUrl = window.URL.createObjectURL(blob);
                                   const link = document.createElement('a');
                                   link.href = blobUrl;
-                                  link.download = `${doc.name}_hal_${i + 1}.jpg`;
+                                  // Gunakan ekstensi yang sesuai dengan tipe file
+                                  const suffix = urls.length > 1 ? `_hal_${i + 1}` : '';
+                                  link.download = `${doc.name}${suffix}${ftInfo.ext}`;
                                   document.body.appendChild(link);
                                   link.click();
                                   document.body.removeChild(link);
@@ -320,8 +334,8 @@ export default function Documents() {
                         </button>
                       )}
 
-                      {/* Multi-page indicator */}
-                      {safeUrls.length > 1 && (
+                      {/* Multi-page indicator (hanya untuk gambar) */}
+                      {(!doc.fileType || doc.fileType === 'image') && safeUrls.length > 1 && (
                         <div className="absolute bottom-3 right-3 bg-black/60 px-2.5 py-1 rounded-lg text-[10px] text-white font-bold border border-white/20 shadow-sm">
                           {safeUrls.length} hal
                         </div>

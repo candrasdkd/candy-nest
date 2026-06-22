@@ -4,16 +4,16 @@ import { collection, addDoc, onSnapshot, deleteDoc, updateDoc, doc, query, order
 import { storage, db } from '../firebase';
 import { useAuthStore } from '../store/useAuthStore';
 import { FamilyDocument, DocCategory, OcrField } from '../types/document';
-import { compressImage } from '../utils/document';
+import { compressImage, getFileType, validateDocFile, ALLOWED_IMAGE_MIME_TYPES, ALLOWED_DOC_MIME_TYPES, MAX_DOC_SIZE } from '../utils/document';
 import { jsPDF } from 'jspdf';
 import { format } from 'date-fns';
 import { CATEGORY_INFO } from '../constants/document';
 import { useConfirmStore } from '../store/useConfirmStore';
 import { FirebaseError } from 'firebase/app';
 
-const MIN_FILE_SIZE = 100 * 1024; // 100KB
-const MAX_FILE_SIZE = 500 * 1024; // 500KB
-const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
+const MIN_FILE_SIZE = 100 * 1024; // 100KB untuk gambar
+const MAX_IMAGE_SIZE = 5 * 1024 * 1024; // 5MB
+const ALLOWED_TYPES = [...ALLOWED_IMAGE_MIME_TYPES, ...ALLOWED_DOC_MIME_TYPES];
 
 export * from '../types/document';
 export * from '../constants/document';
@@ -73,13 +73,21 @@ export function useDocuments() {
     setUploadProgress(0);
 
     try {
+      // Validasi semua file sebelum mulai upload
       for (const file of params.files) {
         if (!ALLOWED_TYPES.includes(file.type)) throw new Error(`Format file "${file.name}" tidak didukung.`);
-        if (file.size > 5 * 1024 * 1024) throw new Error(`File "${file.name}" terlalu besar (Max 5MB).`);
+        const isImage = ALLOWED_IMAGE_MIME_TYPES.includes(file.type);
+        const limit = isImage ? MAX_IMAGE_SIZE : MAX_DOC_SIZE;
+        const limitLabel = isImage ? '5MB' : '10MB';
+        if (file.size > limit) throw new Error(`File "${file.name}" terlalu besar (Max ${limitLabel}).`);
       }
 
       const imageUrls: string[] = [];
       const storagePaths: string[] = [];
+
+      // Tentukan fileType dari file pertama (semua file dalam satu dokumen harusnya tipe yang sama)
+      const detectedFileType = getFileType(params.files[0]?.type ?? 'image/jpeg');
+      const detectedMimeType = params.files[0]?.type;
       
       let totalBytes = 0;
       params.files.forEach(f => totalBytes += f.size);
@@ -113,6 +121,8 @@ export function useDocuments() {
       await addDoc(collection(db, 'family_documents'), {
         name: params.name,
         category: params.category,
+        fileType: detectedFileType,
+        mimeType: detectedMimeType,
         imageUrls,
         storagePaths,
         fields: params.fields,

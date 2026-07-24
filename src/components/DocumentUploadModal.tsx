@@ -377,59 +377,80 @@ export default function DocumentUploadModal({ onClose }: { onClose: () => void }
                       onDragLeave={() => setIsDragging(false)}
                       onDrop={handleDrop}
                       onClick={() => docInputRef.current?.click()}
-                      className={`relative cursor-pointer rounded-3xl border-2 border-dashed p-8 flex flex-col items-center justify-center gap-3 transition-all duration-200 ${isDragging ? 'border-sage-400 bg-sage-50 scale-[1.01]' : 'border-sage-200 hover:border-sage-300 hover:bg-sage-50/50'}`}
+                      className={`relative cursor-pointer rounded-3xl border-2 border-dashed flex flex-col items-center justify-center gap-3 transition-all duration-200 ${
+                        docFiles.length > 0 ? 'p-4' : 'p-8'
+                      } ${isDragging ? 'border-sage-400 bg-sage-50 scale-[1.01]' : 'border-sage-200 hover:border-sage-300 hover:bg-sage-50/50'}`}
                     >
-                      <div className="flex items-center gap-2 text-3xl">
-                        <span>📄</span><span>📝</span><span>📊</span><span>🗂️</span><span>🔐</span>
-                      </div>
-                      <div className="text-center">
-                        <p className="font-bold text-sm text-sage-700">
-                          {isDragging ? 'Lepaskan di sini!' : 'Klik atau seret file ke sini'}
-                        </p>
-                        <p className="text-[10px] text-sage-400 font-medium mt-1 uppercase tracking-widest">
-                          PDF · Word · Excel · JSON · ENV · Maks. 10MB
-                        </p>
-                      </div>
-                      <button
-                        onClick={e => { e.stopPropagation(); docInputRef.current?.click(); }}
-                        className="mt-1 px-5 py-2.5 bg-sage-900 text-white rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-black transition-all active:scale-95"
-                      >
-                        Pilih File
-                      </button>
-                    </div>
-
-                    {/* File List */}
-                    {docFiles.length > 0 && (
-                      <div className="mt-4 space-y-2">
-                        {docFiles.map((f, i) => (
-                          <div key={i} className="flex items-center gap-4 p-4 bg-sage-50 border border-sage-100 rounded-2xl group">
-                            <FileTypeIcon mimeType={f.type} fileName={f.name} className="w-8 h-8 flex-shrink-0" />
-                            <div className="flex-1 min-w-0">
-                              <p className="font-bold text-sm text-sage-900 truncate">{f.name}</p>
-                              <div className="flex items-center gap-2 mt-0.5">
-                                <span className={`text-[9px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full border ${fileTypeBadgeStyle(f.type, f.name)}`}>
-                                  {fileTypeLabel(f.type, f.name)}
-                                </span>
-                                <span className="text-[10px] text-sage-400 font-medium">{formatFileSize(f.size)}</span>
-                              </div>
-                            </div>
-                            <button
-                              onClick={() => setDocFiles(prev => prev.filter((_, idx) => idx !== i))}
-                              className="w-8 h-8 flex items-center justify-center rounded-xl bg-rose-50 text-rose-400 hover:bg-rose-100 hover:text-rose-600 transition-all opacity-0 group-hover:opacity-100"
-                            >
-                              <X className="w-4 h-4" />
-                            </button>
+                      {docFiles.length === 0 ? (
+                        <>
+                          <div className="flex items-center gap-2 text-3xl">
+                            <span>📄</span><span>📝</span><span>📊</span><span>🗂️</span><span>🔐</span>
                           </div>
-                        ))}
-                        <button
-                          onClick={() => docInputRef.current?.click()}
-                          className="w-full py-3 rounded-2xl border-2 border-dashed border-sage-200 text-sage-400 text-xs font-bold uppercase tracking-widest hover:bg-sage-50 transition-all flex items-center justify-center gap-2"
-                        >
-                          <Upload className="w-4 h-4" />
-                          Tambah File Lain
-                        </button>
-                      </div>
-                    )}
+                          <div className="text-center">
+                            <p className="font-bold text-sm text-sage-700">
+                              {isDragging ? 'Lepaskan di sini!' : 'Klik atau seret file ke sini'}
+                            </p>
+                            <p className="text-[10px] text-sage-400 font-medium mt-1 uppercase tracking-widest">
+                              PDF · Word · Excel · JSON · ENV · Maks. 10MB
+                            </p>
+                          </div>
+                          <button
+                            onClick={e => { e.stopPropagation(); docInputRef.current?.click(); }}
+                            className="mt-1 px-5 py-2.5 bg-sage-900 text-white rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-black transition-all active:scale-95"
+                          >
+                            Pilih File
+                          </button>
+                        </>
+                      ) : (
+                        <div className="w-full space-y-3">
+                          <div className="flex items-center justify-center gap-2 py-1 text-emerald-600">
+                            <div className="w-6 h-6 rounded-full bg-emerald-100 flex items-center justify-center">
+                              <Check className="w-3.5 h-3.5 stroke-[3]" />
+                            </div>
+                            <span className="text-[10px] font-black uppercase tracking-widest">
+                              {isDragging ? 'Lepaskan file tambahan' : `${docFiles.length} file berhasil dipilih`}
+                            </span>
+                          </div>
+
+                          <div className="space-y-2">
+                            {docFiles.map((f, i) => (
+                              <div key={i} className="flex items-center gap-3 p-3 bg-white border border-sage-100 rounded-2xl group shadow-sm">
+                                <FileTypeIcon mimeType={f.type} fileName={f.name} className="w-7 h-7 flex-shrink-0" />
+                                <div className="flex-1 min-w-0">
+                                  <p className="font-bold text-sm text-sage-900 truncate">{f.name}</p>
+                                  <div className="flex items-center gap-2 mt-0.5">
+                                    <span className={`text-[9px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full border ${fileTypeBadgeStyle(f.type, f.name)}`}>
+                                      {fileTypeLabel(f.type, f.name)}
+                                    </span>
+                                    <span className="text-[10px] text-sage-400 font-medium">{formatFileSize(f.size)}</span>
+                                  </div>
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={e => {
+                                    e.stopPropagation();
+                                    setDocFiles(prev => prev.filter((_, idx) => idx !== i));
+                                  }}
+                                  className="w-8 h-8 flex items-center justify-center rounded-xl bg-rose-50 text-rose-400 hover:bg-rose-100 hover:text-rose-600 transition-all"
+                                  aria-label={`Hapus ${f.name}`}
+                                >
+                                  <X className="w-4 h-4" />
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+
+                          <button
+                            type="button"
+                            onClick={e => { e.stopPropagation(); docInputRef.current?.click(); }}
+                            className="w-full py-2.5 rounded-xl border border-dashed border-sage-200 text-sage-400 text-[10px] font-bold uppercase tracking-widest hover:bg-white hover:text-sage-600 transition-all flex items-center justify-center gap-2"
+                          >
+                            <Upload className="w-3.5 h-3.5" />
+                            Tambah File Lain
+                          </button>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </motion.div>
               )}

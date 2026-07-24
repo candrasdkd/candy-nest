@@ -1,7 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence, Variants } from 'framer-motion';
-import { Upload, FileText, ChevronDown, FolderOpen, Loader2, Filter, X, CheckCircle2, Download, User, AlertCircle } from 'lucide-react';
+import { Upload, FileText, ChevronDown, FolderOpen, Loader2, Filter, X, CheckCircle2, Download, User, AlertCircle, RefreshCw } from 'lucide-react';
 import { useDocuments, CATEGORY_INFO, DocCategory } from '../hooks/useDocuments';
 import { getFileTypeInfo } from '../utils/document';
 import DocumentUploadModal from '../components/DocumentUploadModal';
@@ -17,7 +17,7 @@ const CATS = Object.entries(CATEGORY_INFO) as [DocCategory, typeof CATEGORY_INFO
 
 export default function Documents() {
   const {
-    documents, loading, error, updateDocument,
+    documents, loading, refreshing, lastSyncedAt, error, updateDocument, refreshDocuments,
     showUpload, setShowUpload,
     selected, setSelected,
     activeCat, setActiveCat,
@@ -37,10 +37,42 @@ export default function Documents() {
   } = useDocuments();
 
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
+  const [manualRefreshing, setManualRefreshing] = useState(false);
+  const [refreshFeedback, setRefreshFeedback] = useState<'idle' | 'success' | 'error'>('idle');
+  const refreshFeedbackTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastSyncLabel = lastSyncedAt
+    ? new Date(lastSyncedAt).toLocaleString('id-ID', {
+        day: '2-digit',
+        month: 'short',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+      })
+    : 'Belum pernah';
 
   const [searchParams, setSearchParams] = useSearchParams();
   const docId = searchParams.get('id');
   const action = searchParams.get('action');
+  const isRefreshing = refreshing || manualRefreshing;
+
+  useEffect(() => {
+    return () => {
+      if (refreshFeedbackTimer.current) clearTimeout(refreshFeedbackTimer.current);
+    };
+  }, []);
+
+  const handleManualRefresh = async () => {
+    if (isRefreshing) return;
+    if (refreshFeedbackTimer.current) clearTimeout(refreshFeedbackTimer.current);
+    setRefreshFeedback('idle');
+    setManualRefreshing(true);
+    const succeeded = await refreshDocuments();
+    setManualRefreshing(false);
+    setRefreshFeedback(succeeded ? 'success' : 'error');
+    refreshFeedbackTimer.current = setTimeout(() => {
+      setRefreshFeedback('idle');
+    }, 3000);
+  };
 
   useEffect(() => {
     if (docId && documents.length > 0) {
@@ -76,14 +108,57 @@ export default function Documents() {
         <div className="space-y-2 text-center md:text-left">
           <h1 className="text-4xl font-display text-sage-900 tracking-tight">Katalog Berkas</h1>
           <p className="text-sage-500 text-sm font-medium">Simpan dan kelola dokumen penting keluarga.</p>
+          <p className="text-[10px] text-sage-400 font-bold uppercase tracking-wider">
+            Sinkron terakhir: {lastSyncLabel} · Otomatis sekali sehari
+          </p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center justify-center md:justify-end gap-3">
           {error && (
             <div className="bg-rose-50 border border-rose-100 text-rose-600 px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2">
               <AlertCircle className="w-4 h-4" />
               {error}
             </div>
           )}
+          <AnimatePresence>
+            {refreshFeedback === 'success' && (
+              <motion.div
+                role="status"
+                initial={{ opacity: 0, y: -6 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -6 }}
+                className="bg-emerald-50 border border-emerald-100 text-emerald-700 px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2"
+              >
+                <CheckCircle2 className="w-4 h-4" />
+                Dokumen berhasil diperbarui
+              </motion.div>
+            )}
+          </AnimatePresence>
+          <button
+            type="button"
+            onClick={handleManualRefresh}
+            disabled={isRefreshing}
+            title="Perbarui dokumen sekarang"
+            className={`flex items-center justify-center gap-2 px-4 py-4 rounded-[1.5rem] font-bold transition-all active:scale-95 border disabled:opacity-50 ${
+              refreshFeedback === 'success'
+                ? 'bg-emerald-50 border-emerald-100 text-emerald-700'
+                : refreshFeedback === 'error'
+                  ? 'bg-rose-50 border-rose-100 text-rose-600'
+                  : 'bg-white border-sage-100 text-sage-600 hover:bg-sage-50'
+            }`}
+          >
+            {refreshFeedback === 'success' && !isRefreshing
+              ? <CheckCircle2 className="w-5 h-5" />
+              : <RefreshCw className={`w-5 h-5 ${isRefreshing ? 'animate-spin' : ''}`} />}
+            <span>
+              {isRefreshing
+                ? 'Memperbarui'
+                : refreshFeedback === 'success'
+                  ? 'Diperbarui'
+                  : refreshFeedback === 'error'
+                    ? 'Gagal'
+                    : 'Perbarui'}
+            </span>
+          </button>
           <button
             onClick={() => {
               setIsSelectMode(!isSelectMode);

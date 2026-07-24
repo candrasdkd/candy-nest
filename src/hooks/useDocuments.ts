@@ -1,8 +1,9 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { ref, uploadBytesResumable, getDownloadURL, deleteObject } from 'firebase/storage';
-import { collection, addDoc, onSnapshot, deleteDoc, updateDoc, doc, query, orderBy, serverTimestamp, where } from 'firebase/firestore';
+import { collection, addDoc, deleteDoc, updateDoc, doc, serverTimestamp } from 'firebase/firestore';
 import { storage, db } from '../firebase';
 import { useAuthStore } from '../store/useAuthStore';
+import { useDocumentsStore } from '../store/useDocumentsStore';
 import { FamilyDocument, DocCategory, OcrField } from '../types/document';
 import { compressImage, getFileType, validateDocFile, ALLOWED_IMAGE_MIME_TYPES, MAX_DOC_SIZE } from '../utils/document';
 import { jsPDF } from 'jspdf';
@@ -19,11 +20,21 @@ export * from '../constants/document';
 
 export function useDocuments() {
   const { userProfile } = useAuthStore();
-  const [documents, setDocuments] = useState<FamilyDocument[]>([]);
-  const [loading, setLoading] = useState(true);
+  const cachedDocuments = useDocumentsStore(state => state.documents);
+  const cachedCoupleId = useDocumentsStore(state => state.coupleId);
+  const storeLoading = useDocumentsStore(state => state.loading);
+  const refreshing = useDocumentsStore(state => state.refreshing);
+  const syncError = useDocumentsStore(state => state.error);
+  const lastSyncedAt = useDocumentsStore(state => state.lastSyncedAt);
+  const refreshDocumentsFromStore = useDocumentsStore(state => state.refreshDocuments);
+  const addCachedDocument = useDocumentsStore(state => state.addCachedDocument);
+  const updateCachedDocument = useDocumentsStore(state => state.updateCachedDocument);
+  const removeCachedDocument = useDocumentsStore(state => state.removeCachedDocument);
+  const documents = cachedCoupleId === userProfile?.coupleId ? cachedDocuments : [];
+  const loading = storeLoading || Boolean(userProfile?.coupleId && cachedCoupleId !== userProfile.coupleId);
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
-  const [error, setError] = useState<string | null>(null);
+  const [operationError, setOperationError] = useState<string | null>(null);
 
   // UI States
   const [showUpload, setShowUpload] = useState(false);
@@ -41,22 +52,15 @@ export function useDocuments() {
 
   useEffect(() => {
     if (!userProfile?.coupleId) return;
-    const q = query(
-      collection(db, 'family_documents'),
-      where('coupleId', '==', userProfile.coupleId),
-      orderBy('createdAt', 'desc')
-    );
-    return onSnapshot(q, (snap) => {
-      const docs = snap.docs
-        .map(d => ({ id: d.id, ...d.data() } as any))
-        .map(d => ({
-          ...d,
-          createdAt: d.createdAt?.toDate() || new Date()
-        })) as FamilyDocument[];
-      setDocuments(docs);
-      setLoading(false);
-    });
-  }, [userProfile?.coupleId]);
+    void refreshDocumentsFromStore(userProfile.coupleId);
+  }, [userProfile?.coupleId, refreshDocumentsFromStore]);
+
+  const refreshDocuments = useCallback(async () => {
+    if (!userProfile?.coupleId) return false;
+    setOperationError(null);
+    await refreshDocumentsFromStore(userProfile.coupleId, true);
+    return useDocumentsStore.getState().error === null;
+  }, [userProfile?.coupleId, refreshDocumentsFromStore]);
 
   /** Step 2: Upload & Simpan Firestore */
   const uploadAndSave = useCallback(async (params: {
@@ -67,7 +71,7 @@ export function useDocuments() {
     rawText: string;
   }) => {
     if (!userProfile?.coupleId || !userProfile?.displayName) throw new Error('Akun belum terhubung.');
-    setError(null);
+    setOperationError(null);
     setUploading(true);
     setUploadProgress(0);
 
@@ -123,7 +127,8 @@ export function useDocuments() {
         storagePaths.push(storagePath);
       }
 
-      await addDoc(collection(db, 'family_documents'), {
+      const createdAt = new Date();
+      const documentData = {
         name: params.name,
         category: params.category,
         fileType: detectedFileType,
@@ -136,6 +141,22 @@ export function useDocuments() {
         uploadedById: userProfile.uid,       // ID buat sinkronisasi real-time
         coupleId: userProfile.coupleId,
         createdAt: serverTimestamp(),
+      };
+      const createdDocument = await addDoc(collection(db, 'family_documents'), documentData);
+      addCachedDocument({
+        id: createdDocument.id,
+        name: params.name,
+        category: params.category,
+        fileType: detectedFileType,
+        mimeType: detectedMimeType,
+        imageUrls,
+        storagePaths,
+        fields: params.fields,
+        extractedText: params.rawText,
+        uploadedBy: userProfile.displayName,
+        uploadedById: userProfile.uid,
+        coupleId: userProfile.coupleId,
+        createdAt,
       });
       setUploading(false);
     } catch (err: any) {
@@ -147,30 +168,33 @@ export function useDocuments() {
       } else {
         msg = err.message || msg;
       }
-      setError(msg);
+      setOperationError(msg);
       throw err;
     }
-  }, [userProfile]);
+  }, [addCachedDocument, userProfile]);
 
   const deleteDocument = useCallback(async (document: FamilyDocument) => {
+    setOperationError(null);
     try {
       const paths = document.storagePaths || (document.storagePath ? [document.storagePath] : []);
       const deletePromises = paths.map(path => deleteObject(ref(storage, path)));
       await Promise.all(deletePromises);
       await deleteDoc(doc(db, 'family_documents', document.id));
+      removeCachedDocument(document.id);
     } catch (err: any) {
-      setError(err.message ?? 'Gagal menghapus dokumen.');
+      setOperationError(err.message ?? 'Gagal menghapus dokumen.');
       throw err;
     }
-  }, []);
+  }, [removeCachedDocument]);
 
   const updateDocument = useCallback(async (id: string, updates: Partial<FamilyDocument>) => {
+    setOperationError(null);
     try {
       const docRef = doc(db, 'family_documents', id);
       
       // Auto-migrate: Jika dokumen lama belum punya ID dan nama pengupload cocok dengan user sekarang
       const original = documents.find(d => d.id === id);
-      const finalUpdates = { ...updates };
+      const finalUpdates: Partial<FamilyDocument> = { ...updates };
       
       const currentName = userProfile?.displayName?.toLowerCase().trim();
       const uploaderName = original?.uploadedBy?.toLowerCase().trim();
@@ -180,11 +204,14 @@ export function useDocuments() {
       }
 
       await updateDoc(docRef, finalUpdates);
+      updateCachedDocument(id, finalUpdates);
     } catch (err: any) {
-      setError(err.message ?? 'Gagal memperbarui dokumen.');
+      setOperationError(err.message ?? 'Gagal memperbarui dokumen.');
       throw err;
     }
-  }, [documents, userProfile]);
+  }, [documents, updateCachedDocument, userProfile]);
+
+  const error = operationError || syncError;
 
   // Derived States
   const partners = useMemo(() => {
@@ -311,6 +338,8 @@ export function useDocuments() {
   return {
     documents,
     loading,
+    refreshing,
+    lastSyncedAt,
     uploading,
     uploadProgress,
     error,
@@ -325,6 +354,7 @@ export function useDocuments() {
     partners,
     filtered,
     activeLabel,
+    refreshDocuments,
     uploadAndSave,
     deleteDocument,
     updateDocument,

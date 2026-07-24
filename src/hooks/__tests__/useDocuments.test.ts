@@ -3,6 +3,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { useDocuments } from '../useDocuments';
 import { useAuthStore } from '../../store/useAuthStore';
 import { useConfirmStore } from '../../store/useConfirmStore';
+import { useDocumentsStore } from '../../store/useDocumentsStore';
 import { FamilyDocument } from '../../types/document';
 
 // Mock Dependencies
@@ -30,6 +31,7 @@ vi.mock('firebase/firestore', () => ({
   updateDoc: vi.fn(),
   deleteDoc: vi.fn(),
   addDoc: vi.fn(),
+  getDocs: vi.fn().mockResolvedValue({ docs: [] }),
   serverTimestamp: vi.fn(),
 }));
 
@@ -65,6 +67,14 @@ const mockDocs: FamilyDocument[] = [
 describe('useDocuments', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    useDocumentsStore.setState({
+      coupleId: 'c1',
+      documents: [],
+      lastSyncedAt: Date.now(),
+      loading: false,
+      refreshing: false,
+      error: null,
+    });
     (useAuthStore as any).mockReturnValue({
       userProfile: { coupleId: 'c1', displayName: 'Candra Sidik' },
     });

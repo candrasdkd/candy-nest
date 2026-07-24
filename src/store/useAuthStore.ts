@@ -24,6 +24,7 @@ import {
 import { auth, db } from '../firebase';
 import { UserProfile } from '../types';
 import { useDataStore } from './useDataStore';
+import { useDocumentsStore } from './useDocumentsStore';
 
 interface AuthState {
   currentUser: User | null;
@@ -170,6 +171,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   logout: async () => {
     await signOut(auth);
     useDataStore.getState().clearData();
+    useDocumentsStore.getState().clearDocuments();
     localStorage.removeItem('candy-nest:user');
     localStorage.removeItem('candy-nest:profile');
     set({ currentUser: null, userProfile: null });

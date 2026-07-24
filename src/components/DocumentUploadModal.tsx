@@ -1,8 +1,8 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Upload, X, ImageIcon, Loader2, ScanLine, Check, AlertCircle, Sparkles, FileText, FilePieChart, FileSpreadsheet, Braces, Camera } from 'lucide-react';
+import { Upload, X, ImageIcon, Loader2, ScanLine, Check, AlertCircle, Sparkles, FileText, FilePieChart, FileSpreadsheet, Braces, Camera, KeyRound } from 'lucide-react';
 import { useDocuments, CATEGORY_INFO, FIELD_TEMPLATES, OcrField, DocCategory } from '../hooks/useDocuments';
-import { formatFileSize, validateDocFile, ALLOWED_DOC_MIME_TYPES } from '../utils/document';
+import { formatFileSize, validateDocFile, ALLOWED_DOC_MIME_TYPES, isEnvFile } from '../utils/document';
 
 type UploadTab = 'photo' | 'file';
 const CATS = Object.entries(CATEGORY_INFO) as [DocCategory, typeof CATEGORY_INFO[DocCategory]][];
@@ -14,9 +14,13 @@ const DOC_ACCEPT = [
   'application/vnd.ms-excel',
   'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
   'application/json',
+  'text/plain',
+  '.env',
 ].join(',');
 
-function FileTypeIcon({ mimeType, className = 'w-10 h-10' }: { mimeType: string; className?: string }) {
+function FileTypeIcon({ mimeType, fileName, className = 'w-10 h-10' }: { mimeType: string; fileName: string; className?: string }) {
+  if (isEnvFile({ name: fileName, type: mimeType }))
+    return <KeyRound className={`${className} text-amber-500`} />;
   if (mimeType === 'application/pdf')
     return <FileText className={`${className} text-rose-500`} />;
   if (mimeType.includes('word'))
@@ -28,7 +32,8 @@ function FileTypeIcon({ mimeType, className = 'w-10 h-10' }: { mimeType: string;
   return <FilePieChart className={`${className} text-sage-400`} />;
 }
 
-function fileTypeBadgeStyle(mimeType: string) {
+function fileTypeBadgeStyle(mimeType: string, fileName: string) {
+  if (isEnvFile({ name: fileName, type: mimeType })) return 'bg-amber-50 border-amber-100 text-amber-600';
   if (mimeType === 'application/pdf') return 'bg-rose-50 border-rose-100 text-rose-600';
   if (mimeType.includes('word')) return 'bg-blue-50 border-blue-100 text-blue-600';
   if (mimeType.includes('excel') || mimeType.includes('spreadsheet')) return 'bg-emerald-50 border-emerald-100 text-emerald-600';
@@ -36,7 +41,8 @@ function fileTypeBadgeStyle(mimeType: string) {
   return 'bg-sage-50 border-sage-100 text-sage-600';
 }
 
-function fileTypeLabel(mimeType: string) {
+function fileTypeLabel(mimeType: string, fileName: string) {
+  if (isEnvFile({ name: fileName, type: mimeType })) return 'ENV';
   if (mimeType === 'application/pdf') return 'PDF';
   if (mimeType.includes('word')) return 'Word';
   if (mimeType.includes('excel') || mimeType.includes('spreadsheet')) return 'Excel';
@@ -148,6 +154,13 @@ export default function DocumentUploadModal({ onClose }: { onClose: () => void }
     }
     if (valid.length > 0) {
       setDocFiles(prev => [...prev, ...valid]);
+      const envFiles = valid.filter(isEnvFile);
+      if (envFiles.length > 0) {
+        setCategory('lainnya');
+        if (envFiles.length === 1) {
+          setCustomName(current => current || envFiles[0].name);
+        }
+      }
     }
   }, []);
 
@@ -367,14 +380,14 @@ export default function DocumentUploadModal({ onClose }: { onClose: () => void }
                       className={`relative cursor-pointer rounded-3xl border-2 border-dashed p-8 flex flex-col items-center justify-center gap-3 transition-all duration-200 ${isDragging ? 'border-sage-400 bg-sage-50 scale-[1.01]' : 'border-sage-200 hover:border-sage-300 hover:bg-sage-50/50'}`}
                     >
                       <div className="flex items-center gap-2 text-3xl">
-                        <span>📄</span><span>📝</span><span>📊</span><span>🗂️</span>
+                        <span>📄</span><span>📝</span><span>📊</span><span>🗂️</span><span>🔐</span>
                       </div>
                       <div className="text-center">
                         <p className="font-bold text-sm text-sage-700">
                           {isDragging ? 'Lepaskan di sini!' : 'Klik atau seret file ke sini'}
                         </p>
                         <p className="text-[10px] text-sage-400 font-medium mt-1 uppercase tracking-widest">
-                          PDF · Word · Excel · JSON · Maks. 10MB
+                          PDF · Word · Excel · JSON · ENV · Maks. 10MB
                         </p>
                       </div>
                       <button
@@ -390,12 +403,12 @@ export default function DocumentUploadModal({ onClose }: { onClose: () => void }
                       <div className="mt-4 space-y-2">
                         {docFiles.map((f, i) => (
                           <div key={i} className="flex items-center gap-4 p-4 bg-sage-50 border border-sage-100 rounded-2xl group">
-                            <FileTypeIcon mimeType={f.type} className="w-8 h-8 flex-shrink-0" />
+                            <FileTypeIcon mimeType={f.type} fileName={f.name} className="w-8 h-8 flex-shrink-0" />
                             <div className="flex-1 min-w-0">
                               <p className="font-bold text-sm text-sage-900 truncate">{f.name}</p>
                               <div className="flex items-center gap-2 mt-0.5">
-                                <span className={`text-[9px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full border ${fileTypeBadgeStyle(f.type)}`}>
-                                  {fileTypeLabel(f.type)}
+                                <span className={`text-[9px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full border ${fileTypeBadgeStyle(f.type, f.name)}`}>
+                                  {fileTypeLabel(f.type, f.name)}
                                 </span>
                                 <span className="text-[10px] text-sage-400 font-medium">{formatFileSize(f.size)}</span>
                               </div>

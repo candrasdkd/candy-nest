@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Trash2, Copy, Check, X, ScanLine, Shield, Download, Share2, Loader2, Pencil, Save, ChevronLeft, ChevronRight, Maximize2, FileText, FileSpreadsheet, Braces, ExternalLink } from 'lucide-react';
+import { Trash2, Copy, Check, X, ScanLine, Shield, Download, Share2, Loader2, Pencil, Save, ChevronLeft, ChevronRight, Maximize2, FileText, FileSpreadsheet, Braces, ExternalLink, KeyRound } from 'lucide-react';
 import { format } from 'date-fns';
 import { id } from 'date-fns/locale';
 import { FamilyDocument, CATEGORY_INFO } from '../hooks/useDocuments';
@@ -355,6 +355,20 @@ export default function DocumentDetailModal({ doc, onClose, onDelete, onUpdate }
                     <div className="p-4 overflow-x-auto max-h-[40vh] overflow-y-auto scrollbar-hide">
                       <JSONViewer url={(doc.imageUrls || [doc.imageUrl!])[0]} />
                     </div>
+                  </div>
+                </div>
+              )}
+
+              {doc.fileType === 'env' && (
+                <div className="rounded-3xl border border-amber-100 bg-amber-50 p-8 flex flex-col items-center justify-center gap-4 text-center">
+                  <div className="w-16 h-16 rounded-2xl bg-amber-100 flex items-center justify-center">
+                    <KeyRound className="w-8 h-8 text-amber-600" />
+                  </div>
+                  <div>
+                    <p className="font-black text-sm uppercase tracking-widest text-amber-700">Environment File</p>
+                    <p className="text-amber-700/70 text-xs mt-2 font-medium max-w-sm leading-relaxed">
+                      Preview isi dinonaktifkan agar secret dan kredensial tidak langsung tampil. Gunakan tombol Download saat diperlukan.
+                    </p>
                   </div>
                 </div>
               )}

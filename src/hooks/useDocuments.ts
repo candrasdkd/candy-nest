@@ -4,7 +4,7 @@ import { collection, addDoc, onSnapshot, deleteDoc, updateDoc, doc, query, order
 import { storage, db } from '../firebase';
 import { useAuthStore } from '../store/useAuthStore';
 import { FamilyDocument, DocCategory, OcrField } from '../types/document';
-import { compressImage, getFileType, validateDocFile, ALLOWED_IMAGE_MIME_TYPES, ALLOWED_DOC_MIME_TYPES, MAX_DOC_SIZE } from '../utils/document';
+import { compressImage, getFileType, validateDocFile, ALLOWED_IMAGE_MIME_TYPES, MAX_DOC_SIZE } from '../utils/document';
 import { jsPDF } from 'jspdf';
 import { format } from 'date-fns';
 import { CATEGORY_INFO } from '../constants/document';
@@ -13,7 +13,6 @@ import { FirebaseError } from 'firebase/app';
 
 const MIN_FILE_SIZE = 100 * 1024; // 100KB untuk gambar
 const MAX_IMAGE_SIZE = 5 * 1024 * 1024; // 5MB
-const ALLOWED_TYPES = [...ALLOWED_IMAGE_MIME_TYPES, ...ALLOWED_DOC_MIME_TYPES];
 
 export * from '../types/document';
 export * from '../constants/document';
@@ -75,8 +74,11 @@ export function useDocuments() {
     try {
       // Validasi semua file sebelum mulai upload
       for (const file of params.files) {
-        if (!ALLOWED_TYPES.includes(file.type)) throw new Error(`Format file "${file.name}" tidak didukung.`);
         const isImage = ALLOWED_IMAGE_MIME_TYPES.includes(file.type);
+        if (!isImage) {
+          const validationError = validateDocFile(file);
+          if (validationError) throw new Error(validationError);
+        }
         const limit = isImage ? MAX_IMAGE_SIZE : MAX_DOC_SIZE;
         const limitLabel = isImage ? '5MB' : '10MB';
         if (file.size > limit) throw new Error(`File "${file.name}" terlalu besar (Max ${limitLabel}).`);
@@ -86,20 +88,23 @@ export function useDocuments() {
       const storagePaths: string[] = [];
 
       // Tentukan fileType dari file pertama (semua file dalam satu dokumen harusnya tipe yang sama)
-      const detectedFileType = getFileType(params.files[0]?.type ?? 'image/jpeg');
-      const detectedMimeType = params.files[0]?.type;
+      const firstFile = params.files[0];
+      const detectedFileType = getFileType(firstFile?.type ?? 'image/jpeg', firstFile?.name);
+      const detectedMimeType = firstFile?.type || (detectedFileType === 'env' ? 'text/plain' : '');
       
       let totalBytes = 0;
       params.files.forEach(f => totalBytes += f.size);
       let uploadedBytes = 0;
 
       for (const file of params.files) {
-        const ext = file.name.split('.').pop();
+        const fileType = getFileType(file.type, file.name);
+        const ext = fileType === 'env' ? 'env' : file.name.split('.').pop();
         const storagePath = `family_documents/${userProfile.coupleId}/${Date.now()}_${Math.random().toString(36).substr(2, 5)}.${ext}`;
         const storageRef = ref(storage, storagePath);
+        const contentType = file.type || (fileType === 'env' ? 'text/plain' : 'application/octet-stream');
 
         await new Promise<void>((resolve, reject) => {
-          const task = uploadBytesResumable(storageRef, file);
+          const task = uploadBytesResumable(storageRef, file, { contentType });
           task.on('state_changed',
             snap => {
               const currentProgress = ((uploadedBytes + snap.bytesTransferred) / totalBytes) * 100;

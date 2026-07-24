@@ -8,8 +8,15 @@ export function formatFileSize(bytes: number): string {
   return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
 }
 
-/** Deteksi FileType dari MIME type */
-export function getFileType(mimeType: string): FileType {
+/** Deteksi file environment berdasarkan nama karena MIME-nya sering kosong */
+export function isEnvFile(file: Pick<File, 'name' | 'type'>): boolean {
+  const name = file.name.toLowerCase();
+  return name === '.env' || name.startsWith('.env.') || name.endsWith('.env');
+}
+
+/** Deteksi FileType dari MIME type dan nama file */
+export function getFileType(mimeType: string, fileName: string = ''): FileType {
+  if (isEnvFile({ name: fileName, type: mimeType })) return 'env';
   if (mimeType.startsWith('image/')) return 'image';
   if (mimeType === 'application/pdf') return 'pdf';
   if (
@@ -32,6 +39,7 @@ export function getFileTypeInfo(fileType: FileType) {
     word:  { label: 'Word',    emoji: '📝',  color: 'text-blue-600',   bg: 'bg-blue-50',    ext: '.docx' },
     excel: { label: 'Excel',   emoji: '📊',  color: 'text-emerald-600',bg: 'bg-emerald-50', ext: '.xlsx' },
     json:  { label: 'JSON',    emoji: '🗂️',  color: 'text-violet-600', bg: 'bg-violet-50',  ext: '.json' },
+    env:   { label: 'ENV',     emoji: '🔐',  color: 'text-amber-600',  bg: 'bg-amber-50',   ext: '.env' },
   };
   return map[fileType] ?? map.image;
 }
@@ -52,8 +60,8 @@ export const MAX_DOC_SIZE = 10 * 1024 * 1024;  // 10MB untuk non-gambar
 
 /** Validasi file non-gambar: return pesan error atau null jika valid */
 export function validateDocFile(file: File): string | null {
-  if (!ALLOWED_DOC_MIME_TYPES.includes(file.type)) {
-    return `Format "${file.name}" tidak didukung. Gunakan PDF, Word, Excel, atau JSON.`;
+  if (!isEnvFile(file) && !ALLOWED_DOC_MIME_TYPES.includes(file.type)) {
+    return `Format "${file.name}" tidak didukung. Gunakan PDF, Word, Excel, JSON, atau ENV.`;
   }
   if (file.size > MAX_DOC_SIZE) {
     return `File "${file.name}" melebihi batas 10MB.`;
@@ -135,4 +143,3 @@ export async function compressImage(file: File, maxSizeKB: number = 300): Promis
     reader.onerror = reject;
   });
 }
-

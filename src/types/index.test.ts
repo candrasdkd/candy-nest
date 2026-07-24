@@ -1,5 +1,12 @@
 import { describe, it, expect } from 'vitest';
-import { formatRupiah, parseRupiah, MAX_AMOUNT, getCategoryInfo } from './index';
+import {
+  formatRupiah,
+  parseRupiah,
+  MAX_AMOUNT,
+  getCategoryInfo,
+  getExpenseOwnerId,
+  isSharedExpense,
+} from './index';
 
 describe('Financial Utilities', () => {
   describe('formatRupiah', () => {
@@ -42,6 +49,27 @@ describe('Financial Utilities', () => {
       // @ts-ignore
       const info = getCategoryInfo('kategori_palsu');
       expect(info.label).toBe('kategori_palsu');
+    });
+
+    it('mengenali kategori bensin dan servis', () => {
+      expect(getCategoryInfo('bensin').label).toBe('Bensin');
+      expect(getCategoryInfo('servis').label).toBe('Servis');
+    });
+  });
+
+  describe('getExpenseOwnerId', () => {
+    it('menggunakan pemilik pengeluaran yang dipilih', () => {
+      expect(getExpenseOwnerId({ userId: 'u1', expenseForUserId: 'u2' })).toBe('u2');
+    });
+
+    it('fallback ke pencatat untuk transaksi lama', () => {
+      expect(getExpenseOwnerId({ userId: 'u1' })).toBe('u1');
+    });
+
+    it('tidak memiliki pemilik individual untuk pengeluaran bersama', () => {
+      const transaction = { userId: 'u1', expenseScope: 'shared' as const };
+      expect(isSharedExpense(transaction)).toBe(true);
+      expect(getExpenseOwnerId(transaction)).toBeNull();
     });
   });
 });

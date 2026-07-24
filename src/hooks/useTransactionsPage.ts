@@ -3,7 +3,9 @@ import { format, startOfMonth, endOfMonth } from 'date-fns';
 import { useTransactions } from './useTransactions';
 import { useConfirmStore } from '../store/useConfirmStore';
 import { useAuthStore } from '../store/useAuthStore';
-import { TransactionType, getCategoryInfo } from '../types';
+import { getCategoryInfo, getExpenseOwnerId, isSharedExpense } from '../types';
+
+export type ExpenseOwnerFilter = 'all' | 'self' | 'partner' | 'shared';
 
 export function useTransactionsPage() {
   const { userProfile } = useAuthStore();
@@ -12,6 +14,7 @@ export function useTransactionsPage() {
   const [search, setSearch] = useState('');
   const filterType = 'expense';
   const setFilterType = (_val?: any) => {};
+  const [expenseOwner, setExpenseOwner] = useState<ExpenseOwnerFilter>('all');
   const [startDate, setStartDate] = useState(format(startOfMonth(new Date()), 'yyyy-MM-dd'));
   const [endDate, setEndDate] = useState(format(endOfMonth(new Date()), 'yyyy-MM-dd'));
   const { confirm, close, setLoading: setConfirmLoading } = useConfirmStore();
@@ -21,6 +24,12 @@ export function useTransactionsPage() {
       if (tx.type !== 'expense') return false;
       if (startDate && tx.date < startDate) return false;
       if (endDate && tx.date > endDate) return false;
+
+      const ownerId = getExpenseOwnerId(tx);
+      const isShared = isSharedExpense(tx);
+      if (expenseOwner === 'self' && (isShared || ownerId !== userProfile?.uid)) return false;
+      if (expenseOwner === 'partner' && (isShared || ownerId === userProfile?.uid)) return false;
+      if (expenseOwner === 'shared' && !isShared) return false;
 
       if (search) {
         const cat = getCategoryInfo(tx.category);
@@ -33,7 +42,7 @@ export function useTransactionsPage() {
       }
       return true;
     });
-  }, [transactions, startDate, endDate, search]);
+  }, [transactions, startDate, endDate, expenseOwner, userProfile?.uid, search]);
 
   const totalIncome = 0;
   
@@ -70,6 +79,7 @@ export function useTransactionsPage() {
 
   const resetFilters = () => {
     setSearch('');
+    setExpenseOwner('all');
     setStartDate(format(startOfMonth(new Date()), 'yyyy-MM-dd'));
     setEndDate(format(endOfMonth(new Date()), 'yyyy-MM-dd'));
   };
@@ -84,6 +94,8 @@ export function useTransactionsPage() {
     setSearch,
     filterType,
     setFilterType,
+    expenseOwner,
+    setExpenseOwner,
     startDate,
     setStartDate,
     endDate,

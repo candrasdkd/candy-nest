@@ -2,7 +2,7 @@ import { X, Calendar, User, Wallet, Tag, Trash2, Edit2, Clock, Sparkles } from '
 import { motion } from 'framer-motion';
 import { format, parseISO } from 'date-fns';
 import { id } from 'date-fns/locale';
-import { Transaction, formatRupiah, getCategoryInfo } from '../types';
+import { Transaction, formatRupiah, getCategoryInfo, getExpenseOwnerId, isSharedExpense } from '../types';
 
 const containerVariants = {
   hidden: { y: '100%', opacity: 0 },
@@ -24,11 +24,14 @@ interface Props {
   onEdit: () => void;
   onDelete: () => void;
   currentUserId: string | undefined;
+  partnerName?: string | null;
 }
 
-export default function TransactionDetailModal({ tx, onClose, onEdit, onDelete, currentUserId }: Props) {
+export default function TransactionDetailModal({ tx, onClose, onEdit, onDelete, currentUserId, partnerName }: Props) {
   const cat = getCategoryInfo(tx.category);
-  const isMine = tx.userId === currentUserId;
+  const recordedByMe = tx.userId === currentUserId;
+  const isShared = isSharedExpense(tx);
+  const isForMe = getExpenseOwnerId(tx) === currentUserId;
   const isIncome = tx.type === 'income';
 
   return (
@@ -92,6 +95,20 @@ export default function TransactionDetailModal({ tx, onClose, onEdit, onDelete, 
 
           {/* Transaction Metadata Grid */}
           <div className="space-y-4 bg-sage-50/30 p-5 rounded-3xl border border-sage-100/50">
+            {/* Expense Owner */}
+            {!isIncome && (
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-sage-400 flex items-center gap-2">
+                  <Wallet className="w-4 h-4" /> Pengeluaran Untuk
+                </span>
+                <span className={`font-bold ${
+                  isShared ? 'text-violet-600' : isForMe ? 'text-sage-900' : 'text-rose-600'
+                }`}>
+                  {isShared ? 'Bersama' : isForMe ? 'Saya' : (partnerName || 'Pasangan')}
+                </span>
+              </div>
+            )}
+
             {/* Added By / User */}
             <div className="flex items-center justify-between text-sm">
               <span className="text-sage-400 flex items-center gap-2">
@@ -100,9 +117,9 @@ export default function TransactionDetailModal({ tx, onClose, onEdit, onDelete, 
               <div className="flex items-center gap-2 font-bold text-sage-900">
                 <span>{tx.addedBy}</span>
                 <span className={`text-[8px] font-black tracking-tight px-2 py-0.5 rounded-full ${
-                  isMine ? 'bg-sage-100 text-sage-700' : 'bg-rose-100 text-rose-600'
+                  recordedByMe ? 'bg-sage-100 text-sage-700' : 'bg-rose-100 text-rose-600'
                 }`}>
-                  {isMine ? 'SAYA' : 'PASANGAN'}
+                  {recordedByMe ? 'SAYA' : 'PASANGAN'}
                 </span>
               </div>
             </div>

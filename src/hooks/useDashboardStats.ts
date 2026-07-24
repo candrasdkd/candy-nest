@@ -1,7 +1,7 @@
 import { useMemo, useState, useEffect } from 'react';
 import { startOfMonth, endOfMonth, isWithinInterval, parseISO, format } from 'date-fns';
 import { id } from 'date-fns/locale';
-import { Transaction, getCategoryInfo, formatRupiah } from '../types';
+import { Transaction, getCategoryInfo, getExpenseOwnerId, isSharedExpense, formatRupiah } from '../types';
 
 export function useDashboardStats(transactions: Transaction[], date: Date = new Date()) {
   const [hideBalance, setHideBalance] = useState(true);
@@ -33,24 +33,67 @@ export function useDashboardStats(transactions: Transaction[], date: Date = new 
     return thisMonthTx.reduce((sum, tx) => sum + tx.amount, 0);
   }, [thisMonthTx]);
 
-  // 4. Pie chart data pengeluaran per kategori bulan ini
-  const pieData = useMemo(() => {
-    const grouped: Record<string, number> = {};
-    thisMonthTx.forEach(t => {
-      grouped[t.category] = (grouped[t.category] || 0) + t.amount;
+  // 3. Hitung pengeluaran per anggota pasangan
+  const expenseByUser = useMemo(() => {
+    return thisMonthTx.reduce<Record<string, number>>((totals, tx) => {
+      const ownerId = getExpenseOwnerId(tx);
+      if (!ownerId) return totals;
+      totals[ownerId] = (totals[ownerId] || 0) + tx.amount;
+      return totals;
+    }, {});
+  }, [thisMonthTx]);
+
+  const sharedExpense = useMemo(() => {
+    return thisMonthTx.reduce((total, tx) => (
+      isSharedExpense(tx) ? total + tx.amount : total
+    ), 0);
+  }, [thisMonthTx]);
+
+  // 4. Breakdown kategori, termasuk pemilik pengeluarannya
+  const categoryBreakdown = useMemo(() => {
+    const grouped: Record<string, {
+      value: number;
+      expenseByUser: Record<string, number>;
+      sharedValue: number;
+    }> = {};
+
+    thisMonthTx.forEach(tx => {
+      if (!grouped[tx.category]) {
+        grouped[tx.category] = { value: 0, expenseByUser: {}, sharedValue: 0 };
+      }
+
+      const category = grouped[tx.category];
+      category.value += tx.amount;
+
+      if (isSharedExpense(tx)) {
+        category.sharedValue += tx.amount;
+        return;
+      }
+
+      const ownerId = getExpenseOwnerId(tx);
+      if (ownerId) {
+        category.expenseByUser[ownerId] = (category.expenseByUser[ownerId] || 0) + tx.amount;
+      }
     });
 
     return Object.entries(grouped)
-      .sort(([, valA], [, valB]) => valB - valA)
-      .map(([cat, val]) => {
+      .sort(([, dataA], [, dataB]) => dataB.value - dataA.value)
+      .map(([cat, data]) => {
         const info = getCategoryInfo(cat as any);
         return {
+          category: cat,
           name: info.label,
-          value: val,
+          value: data.value,
           icon: info.icon,
+          expenseByUser: data.expenseByUser,
+          sharedValue: data.sharedValue,
         };
       });
   }, [thisMonthTx]);
+
+  const pieData = useMemo(() => (
+    categoryBreakdown.map(({ name, value, icon }) => ({ name, value, icon }))
+  ), [categoryBreakdown]);
 
   // 5. Transaksi terbaru (5 transaksi) - Hanya ambil pengeluaran
   const recentTx = useMemo(() => {
@@ -84,9 +127,12 @@ export function useDashboardStats(transactions: Transaction[], date: Date = new 
     thisMonthTx,
     totalIncome: 0,
     totalExpense,
+    expenseByUser,
+    sharedExpense,
     balance: -totalExpense,
     allTimeBalance: 0,
     pieData,
+    categoryBreakdown,
     recentTx,
     hideBalance,
     setHideBalance,

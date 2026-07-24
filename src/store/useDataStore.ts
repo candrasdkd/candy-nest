@@ -255,6 +255,8 @@ export const useDataStore = create<DataState>((set, get) => ({
       const newCategory = updatedData.category ?? oldTxData.category;
       const newDescription = updatedData.description ?? oldTxData.description;
       const newDate = updatedData.date ?? oldTxData.date;
+      const newExpenseForUserId = updatedData.expenseForUserId ?? oldTxData.expenseForUserId ?? oldTxData.userId;
+      const newExpenseScope = updatedData.expenseScope ?? oldTxData.expenseScope ?? 'personal';
 
       // 1. Update the main transaction document
       await updateDoc(txRef, {
@@ -263,6 +265,8 @@ export const useDataStore = create<DataState>((set, get) => ({
         category: newCategory,
         description: newDescription,
         date: newDate,
+        expenseForUserId: newExpenseForUserId,
+        expenseScope: newExpenseScope,
       });
 
       // 2. Handle related pot transaction if exists

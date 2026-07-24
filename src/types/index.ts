@@ -1,5 +1,6 @@
 export type TransactionType = 'income' | 'expense';
 export type PotTransactionType = 'deposit' | 'withdraw';
+export type ExpenseScope = 'personal' | 'shared';
 import {
   Briefcase,
   Laptop,
@@ -8,6 +9,8 @@ import {
   Coins,
   Utensils,
   Car,
+  Fuel,
+  Wrench,
   ShoppingBag,
   FileText,
   Activity,
@@ -26,6 +29,8 @@ export type Category =
   | 'lainnya_pemasukan'
   | 'makan'
   | 'transport'
+  | 'bensin'
+  | 'servis'
   | 'belanja'
   | 'tagihan'
   | 'kesehatan'
@@ -45,7 +50,20 @@ export interface Transaction {
   date: string; // ISO string
   createdAt: string;
   addedBy: string; // user displayName
+  expenseForUserId?: string; // UID pemilik pengeluaran; transaksi lama fallback ke userId
+  expenseScope?: ExpenseScope; // transaksi lama dianggap personal
   relatedPotId?: string;
+}
+
+export function isSharedExpense(transaction: Pick<Transaction, 'expenseScope'>): boolean {
+  return transaction.expenseScope === 'shared';
+}
+
+export function getExpenseOwnerId(
+  transaction: Pick<Transaction, 'expenseForUserId' | 'expenseScope' | 'userId'>
+): string | null {
+  if (isSharedExpense(transaction)) return null;
+  return transaction.expenseForUserId || transaction.userId;
 }
 
 
@@ -90,6 +108,8 @@ export const INCOME_CATEGORIES: { value: Category; label: string; icon: any }[] 
 export const EXPENSE_CATEGORIES: { value: Category; label: string; icon: any }[] = [
   { value: 'makan', label: 'Makan & Minum', icon: Utensils },
   { value: 'transport', label: 'Transportasi', icon: Car },
+  { value: 'bensin', label: 'Bensin', icon: Fuel },
+  { value: 'servis', label: 'Servis', icon: Wrench },
   { value: 'belanja', label: 'Belanja', icon: ShoppingBag },
   { value: 'tagihan', label: 'Tagihan', icon: FileText },
   { value: 'kesehatan', label: 'Kesehatan', icon: Activity },

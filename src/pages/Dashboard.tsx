@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
   Plus,
   ArrowRight,
@@ -23,7 +23,7 @@ import {
 } from 'recharts';
 import { useAuthStore } from '../store/useAuthStore';
 import { useTransactions } from '../hooks/useTransactions';
-import { formatRupiah, getCategoryInfo } from '../types';
+import { formatRupiah, getCategoryInfo, getExpenseOwnerId, isSharedExpense } from '../types';
 import { useDashboardStats } from '../hooks/useDashboardStats';
 import TransactionModal from '../components/TransactionModal';
 import MonthlyAllocationTable from '../components/MonthlyAllocationTable';
@@ -53,6 +53,8 @@ const COLORS = [
   '#4338ca', // indigo-700
 ];
 
+type CategoryOwnerFilter = 'all' | 'self' | 'partner' | 'shared';
+
 const CustomTooltip = ({ active, payload }: any) => {
   if (active && payload && payload.length) {
     return (
@@ -72,17 +74,53 @@ export default function Dashboard() {
   const { userProfile } = useAuthStore();
   const { transactions, loading } = useTransactions();
   const [showModal, setShowModal] = useState(false);
+  const [categoryOwner, setCategoryOwner] = useState<CategoryOwnerFilter>('all');
   const now = new Date();
 
   const {
     totalExpense,
+    expenseByUser,
+    sharedExpense,
     pieData,
+    categoryBreakdown,
     recentTx,
     handleShareStats,
   } = useDashboardStats(transactions, now);
 
   const topCategory = pieData[0];
   const txCountThisMonth = pieData.reduce((sum, d) => sum + 1, 0);
+  const myExpense = userProfile?.uid ? (expenseByUser[userProfile.uid] || 0) : 0;
+  const partnerExpense = Math.max(totalExpense - myExpense - sharedExpense, 0);
+  const categoryPieData = useMemo(() => {
+    return categoryBreakdown
+      .map(entry => {
+        const myCategoryExpense = userProfile?.uid
+          ? (entry.expenseByUser[userProfile.uid] || 0)
+          : 0;
+        const value = categoryOwner === 'all'
+          ? entry.value
+          : categoryOwner === 'self'
+            ? myCategoryExpense
+            : categoryOwner === 'shared'
+              ? entry.sharedValue
+              : Math.max(entry.value - myCategoryExpense - entry.sharedValue, 0);
+
+        return { ...entry, value };
+      })
+      .filter(entry => entry.value > 0)
+      .sort((a, b) => b.value - a.value);
+  }, [categoryBreakdown, categoryOwner, userProfile?.uid]);
+  const categoryExpenseTotal = useMemo(
+    () => categoryPieData.reduce((total, entry) => total + entry.value, 0),
+    [categoryPieData]
+  );
+  const categoryOwnerLabel = categoryOwner === 'all'
+    ? 'Semua'
+    : categoryOwner === 'self'
+      ? 'Saya'
+      : categoryOwner === 'shared'
+        ? 'Bersama'
+        : (userProfile?.partnerName || 'Pasangan');
 
   if (!userProfile?.coupleId) {
     return (
@@ -187,6 +225,32 @@ export default function Dashboard() {
               )}
             </div>
 
+            {/* Expense split per person */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+              <div className="rounded-2xl bg-white/10 border border-white/10 px-4 py-3 min-w-0">
+                <p className="text-[9px] font-bold uppercase tracking-wider text-white/45 mb-1">Saya</p>
+                <p className="font-mono text-sm sm:text-base font-black text-white truncate">
+                  {formatRupiah(myExpense)}
+                </p>
+              </div>
+              <div className="rounded-2xl bg-rose-400/10 border border-rose-300/10 px-4 py-3 min-w-0">
+                <p className="text-[9px] font-bold uppercase tracking-wider text-rose-200/70 mb-1 truncate">
+                  {userProfile.partnerName || 'Pasangan'}
+                </p>
+                <p className="font-mono text-sm sm:text-base font-black text-rose-100 truncate">
+                  {formatRupiah(partnerExpense)}
+                </p>
+              </div>
+              <div className="rounded-2xl bg-violet-400/10 border border-violet-300/10 px-4 py-3 min-w-0">
+                <p className="text-[9px] font-bold uppercase tracking-wider text-violet-200/70 mb-1">
+                  Bersama
+                </p>
+                <p className="font-mono text-sm sm:text-base font-black text-violet-100 truncate">
+                  {formatRupiah(sharedExpense)}
+                </p>
+              </div>
+            </div>
+
             {/* Top category chip */}
             {topCategory && (
               <div className="flex items-center gap-2 w-fit bg-white/10 border border-white/10 rounded-2xl px-4 py-2.5">
@@ -239,21 +303,44 @@ export default function Dashboard() {
           variants={itemVariants}
           className="lg:col-span-3 bg-white rounded-[2.5rem] p-6 md:p-8 border border-sage-50 shadow-xl shadow-sage-900/[0.03] flex flex-col"
         >
-          <div className="flex items-center justify-between mb-6">
-            <div>
-              <h3 className="font-display text-xl text-sage-900 leading-none mb-1">Distribusi Pengeluaran</h3>
-              <p className="text-xs text-sage-400 font-medium">{format(now, 'MMMM yyyy', { locale: id })}</p>
+          <div className="space-y-4 mb-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="font-display text-xl text-sage-900 leading-none mb-1">Pengeluaran per Kategori</h3>
+                <p className="text-xs text-sage-400 font-medium">{format(now, 'MMMM yyyy', { locale: id })}</p>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-1 p-1 rounded-2xl bg-sage-50 border border-sage-100">
+              {([
+                ['all', 'Semua'],
+                ['self', 'Saya'],
+                ['partner', userProfile.partnerName || 'Pasangan'],
+                ['shared', 'Bersama'],
+              ] as const).map(([value, label]) => (
+                <button
+                  key={value}
+                  type="button"
+                  onClick={() => setCategoryOwner(value)}
+                  className={`px-3 py-2 rounded-xl text-[10px] font-bold truncate transition-all ${
+                    categoryOwner === value
+                      ? 'bg-white text-sage-800 border border-sage-100 shadow-sm'
+                      : 'text-sage-400 border border-transparent hover:text-sage-600'
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
             </div>
           </div>
 
-          {pieData.length > 0 ? (
+          {categoryPieData.length > 0 ? (
             <div className="flex flex-col sm:flex-row items-center gap-6 flex-1">
               {/* Donut */}
               <div className="relative w-full sm:w-[200px] h-[200px] flex-shrink-0">
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
                     <Pie
-                      data={pieData}
+                      data={categoryPieData}
                       dataKey="value"
                       cx="50%"
                       cy="50%"
@@ -262,7 +349,7 @@ export default function Dashboard() {
                       strokeWidth={0}
                       paddingAngle={3}
                     >
-                      {pieData.map((_, i) => (
+                      {categoryPieData.map((_, i) => (
                         <Cell key={i} fill={COLORS[i % COLORS.length]} className="focus:outline-none" />
                       ))}
                     </Pie>
@@ -270,16 +357,16 @@ export default function Dashboard() {
                   </PieChart>
                 </ResponsiveContainer>
                 <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                  <span className="text-[9px] font-bold text-sage-400 uppercase tracking-widest">Total</span>
+                  <span className="text-[9px] font-bold text-sage-400 uppercase tracking-widest">{categoryOwnerLabel}</span>
                   <span className="font-mono text-base font-black text-sage-900 leading-tight">
-                    {formatRupiah(totalExpense)}
+                    {formatRupiah(categoryExpenseTotal)}
                   </span>
                 </div>
               </div>
 
               {/* Legend */}
               <div className="flex-1 w-full space-y-2 max-h-[200px] overflow-y-auto scrollbar-hide">
-                {pieData.map((entry, i) => (
+                {categoryPieData.map((entry, i) => (
                   <div key={i} className="flex items-center justify-between group hover:bg-sage-50 rounded-xl px-3 py-2 transition-colors">
                     <div className="flex items-center gap-2.5 min-w-0">
                       <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: COLORS[i % COLORS.length] }} />
@@ -287,7 +374,7 @@ export default function Dashboard() {
                     </div>
                     <div className="flex items-center gap-2 flex-shrink-0 ml-2">
                       <span className="text-[9px] font-bold text-sage-400 bg-sage-100 px-1.5 py-0.5 rounded-full">
-                        {((entry.value / totalExpense) * 100).toFixed(0)}%
+                        {((entry.value / categoryExpenseTotal) * 100).toFixed(0)}%
                       </span>
                       <span className="font-mono text-xs font-black text-sage-900">
                         {formatRupiah(entry.value)}
@@ -300,8 +387,10 @@ export default function Dashboard() {
           ) : (
             <div className="flex flex-col items-center justify-center flex-1 py-10 text-sage-300 bg-sage-50/50 rounded-[1.5rem] border border-dashed border-sage-100">
               <Inbox className="w-10 h-10 mb-3 text-sage-200" />
-              <p className="font-bold text-sage-700 text-sm mb-1">Belum Ada Pengeluaran</p>
-              <p className="text-xs font-medium text-sage-400 text-center px-4">Catat pengeluaran pertamamu hari ini.</p>
+              <p className="font-bold text-sage-700 text-sm mb-1">Belum Ada Pengeluaran {categoryOwnerLabel}</p>
+              <p className="text-xs font-medium text-sage-400 text-center px-4">
+                Belum ada kategori pengeluaran untuk pilihan ini.
+              </p>
             </div>
           )}
         </motion.div>
@@ -347,7 +436,13 @@ export default function Dashboard() {
             ) : (
               recentTx.map((tx, idx) => {
                 const cat = getCategoryInfo(tx.category);
-                const isMine = tx.userId === userProfile?.uid || (tx.addedBy === userProfile?.displayName && !tx.userId);
+                const isShared = isSharedExpense(tx);
+                const isForMe = getExpenseOwnerId(tx) === userProfile?.uid;
+                const expenseOwnerLabel = isShared
+                  ? 'Bersama'
+                  : isForMe
+                    ? 'Saya'
+                    : (userProfile?.partnerName || 'Pasangan');
                 const color = COLORS[idx % COLORS.length];
 
                 return (
@@ -370,8 +465,14 @@ export default function Dashboard() {
                         {tx.description && (
                           <p className="text-[9px] text-sage-400 italic truncate max-w-[80px]">"{tx.description}"</p>
                         )}
-                        <span className={`text-[8px] font-black px-1.5 py-0.5 rounded-full uppercase tracking-tight ${isMine ? 'bg-sage-100 text-sage-600' : 'bg-rose-100 text-rose-500'}`}>
-                          {isMine ? 'Saya' : (userProfile?.partnerName || 'Pasangan')}
+                        <span className={`text-[8px] font-black px-1.5 py-0.5 rounded-full uppercase tracking-tight ${
+                          isShared
+                            ? 'bg-violet-100 text-violet-600'
+                            : isForMe
+                              ? 'bg-sage-100 text-sage-600'
+                              : 'bg-rose-100 text-rose-500'
+                        }`}>
+                          Untuk {expenseOwnerLabel}
                         </span>
                       </div>
                     </div>

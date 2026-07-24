@@ -12,6 +12,7 @@ describe('useDashboardStats', () => {
       // Transaksi bulan ini (April)
       { id: '1', amount: 5000000, type: 'income', category: 'gaji', date: '2026-04-05', description: 'Gaji Bulanan', addedBy: 'Suami', coupleId: 'c1', userId: 'u1', createdAt: '' },
       { id: '2', amount: 1500000, type: 'expense', category: 'makan', date: '2026-04-10', description: 'Belanja Dapur', addedBy: 'Istri', coupleId: 'c1', userId: 'u2', createdAt: '' },
+      { id: '4', amount: 500000, type: 'expense', category: 'tagihan', date: '2026-04-12', description: 'Internet', addedBy: 'Suami', coupleId: 'c1', userId: 'u1', expenseScope: 'shared', createdAt: '' },
       
       // Transaksi bulan lalu (Maret) -> Harusnya diabaikan oleh useDashboardStats
       { id: '3', amount: 500000, type: 'expense', category: 'transport', date: '2026-03-25', description: 'Bensin', addedBy: 'Suami', coupleId: 'c1', userId: 'u1', createdAt: '' },
@@ -21,10 +22,26 @@ describe('useDashboardStats', () => {
 
     // Ekspektasi
     expect(result.current.totalIncome).toBe(0);
-    expect(result.current.totalExpense).toBe(1500000);
-    expect(result.current.balance).toBe(-1500000);
+    expect(result.current.totalExpense).toBe(2000000);
+    expect(result.current.balance).toBe(-2000000);
+    expect(result.current.expenseByUser).toEqual({ u2: 1500000 });
+    expect(result.current.sharedExpense).toBe(500000);
+    expect(result.current.categoryBreakdown.find(item => item.category === 'makan')).toEqual(
+      expect.objectContaining({
+        value: 1500000,
+        expenseByUser: { u2: 1500000 },
+        sharedValue: 0,
+      })
+    );
+    expect(result.current.categoryBreakdown.find(item => item.category === 'tagihan')).toEqual(
+      expect.objectContaining({
+        value: 500000,
+        expenseByUser: {},
+        sharedValue: 500000,
+      })
+    );
     
     // Pastikan hanya 1 transaksi pengeluaran yang terbaca untuk bulan April
-    expect(result.current.thisMonthTx).toHaveLength(1);
+    expect(result.current.thisMonthTx).toHaveLength(2);
   });
 });

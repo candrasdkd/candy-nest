@@ -18,7 +18,7 @@ import {
 import { motion, AnimatePresence, Variants } from 'framer-motion';
 import { format, parseISO } from 'date-fns';
 import { id } from 'date-fns/locale';
-import { formatRupiah, getCategoryInfo, Transaction } from '../types';
+import { formatRupiah, getCategoryInfo, getExpenseOwnerId, isSharedExpense, Transaction } from '../types';
 import TransactionModal from '../components/TransactionModal';
 import TransactionDetailModal from '../components/TransactionDetailModal';
 
@@ -48,6 +48,8 @@ export default function Transactions() {
     setSearch,
     filterType,
     setFilterType,
+    expenseOwner,
+    setExpenseOwner,
     startDate,
     setStartDate,
     endDate,
@@ -143,20 +145,43 @@ export default function Transactions() {
           <button
             onClick={() => setShowAdvancedFilters(prev => !prev)}
             className={`md:hidden px-4 flex items-center justify-center gap-2 rounded-[1.5rem] border transition-all ${
-              showAdvancedFilters || filterType !== 'all' || startDate || endDate
+              showAdvancedFilters || expenseOwner !== 'all' || startDate || endDate
                 ? 'bg-sage-800 border-sage-800 text-white shadow-lg shadow-sage-800/20'
                 : 'bg-sage-50/50 border-sage-100 text-sage-600 hover:bg-sage-100'
             }`}
           >
             <span className="text-xs font-bold">Filter</span>
-            {(filterType !== 'all' || startDate || endDate) && (
+            {(expenseOwner !== 'all' || startDate || endDate) && (
               <span className="w-2 h-2 rounded-full bg-rose-400 animate-pulse" />
             )}
           </button>
         </div>
 
         {/* Collapsible Advanced Filters */}
-        <div className={`${showAdvancedFilters ? 'block' : 'hidden'} md:block pt-1 md:pt-0`}>
+        <div className={`${showAdvancedFilters ? 'block' : 'hidden'} md:block pt-1 md:pt-0 space-y-3`}>
+          {/* Expense Owner Filter */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-1 rounded-[1.5rem] bg-sage-50/50 border border-sage-100 p-1">
+            {([
+              ['all', 'Semua'],
+              ['self', 'Saya'],
+              ['partner', userProfile?.partnerName || 'Pasangan'],
+              ['shared', 'Bersama'],
+            ] as const).map(([value, label]) => (
+              <button
+                key={value}
+                type="button"
+                onClick={() => setExpenseOwner(value)}
+                className={`px-3 py-2.5 rounded-[1.1rem] text-[10px] font-bold truncate transition-all ${
+                  expenseOwner === value
+                    ? 'bg-white text-sage-800 shadow-sm border border-sage-100'
+                    : 'text-sage-400 border border-transparent hover:text-sage-600'
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+
           {/* Date Range Picker */}
           <div className="w-full flex items-center bg-sage-50/50 p-1 rounded-[1.5rem] border border-sage-100 overflow-hidden">
             <div className="flex-1 flex items-center px-3 gap-2 group/date relative">
@@ -186,7 +211,7 @@ export default function Transactions() {
 
       {/* Summary Cards Row (Autohide: only visible when filters are active) */}
       <AnimatePresence>
-        {!!(search.trim() || startDate || endDate) && (
+        {!!(search.trim() || expenseOwner !== 'all' || startDate || endDate) && (
           <motion.div
             initial={{ opacity: 0, height: 0, marginTop: 0 }}
             animate={{ opacity: 1, height: 'auto', marginTop: 24 }}
@@ -263,7 +288,13 @@ export default function Transactions() {
                 <div className="grid grid-cols-1 gap-3">
                   {txs.map(tx => {
                     const cat = getCategoryInfo(tx.category);
-                    const isMine = tx.userId === userProfile?.uid;
+                    const isShared = isSharedExpense(tx);
+                    const isForMe = getExpenseOwnerId(tx) === userProfile?.uid;
+                    const expenseOwnerLabel = isShared
+                      ? 'Bersama'
+                      : isForMe
+                        ? 'Saya'
+                        : (userProfile?.partnerName || 'Pasangan');
 
                     return (
                       <motion.div
@@ -287,8 +318,10 @@ export default function Transactions() {
                             <p className="text-[9px] sm:text-[10px] text-sage-400 font-semibold flex items-center gap-1.5 mt-0.5">
                               {tx.createdAt && format(parseISO(tx.createdAt), 'HH:mm')}
                               <span>·</span>
-                              <span className={`text-[8px] sm:text-[8.5px] font-black uppercase tracking-tight ${isMine ? 'text-sage-500' : 'text-rose-500'}`}>
-                                {isMine ? 'Saya' : 'Pasangan'}
+                              <span className={`text-[8px] sm:text-[8.5px] font-black uppercase tracking-tight ${
+                                isShared ? 'text-violet-500' : isForMe ? 'text-sage-500' : 'text-rose-500'
+                              }`}>
+                                Untuk {expenseOwnerLabel}
                               </span>
                             </p>
                           </div>
@@ -343,6 +376,7 @@ export default function Transactions() {
             onEdit={() => setEditTx(detailTx)}
             onDelete={() => handleDelete(detailTx.id)}
             currentUserId={userProfile?.uid}
+            partnerName={userProfile?.partnerName}
           />
         )}
       </AnimatePresence>

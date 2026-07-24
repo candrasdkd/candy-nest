@@ -1,7 +1,7 @@
-import { X, TrendingUp, TrendingDown, AlertTriangle, Loader2, Calendar, Type, Sparkles, Wallet } from 'lucide-react';
+import { X, AlertTriangle, Loader2, Calendar, Type, Sparkles, User, Heart, Users } from 'lucide-react';
 import { motion, AnimatePresence, Variants } from 'framer-motion';
 import { useTransactionForm } from '../hooks/useTransactionForm';
-import { TransactionType, Transaction } from '../types';
+import { Transaction } from '../types';
 
 const containerVariants: Variants = {
   hidden: { y: '100%', opacity: 0 },
@@ -45,6 +45,9 @@ export default function TransactionModal({ onClose, transactionToEdit }: Props) 
     setDescription,
     date,
     setDate,
+    expenseFor,
+    setExpenseFor,
+    partnerName,
     loading,
     error,
     amountRef,
@@ -153,6 +156,54 @@ export default function TransactionModal({ onClose, transactionToEdit }: Props) 
                 </motion.div>
               )}
             </AnimatePresence>
+
+            {/* Expense Owner */}
+            <div className="space-y-3">
+              <label className="block text-[9px] font-bold text-sage-400 uppercase tracking-widest px-1">
+                Pengeluaran Untuk
+              </label>
+              <div className="grid grid-cols-3 gap-2 p-1.5 rounded-2xl bg-sage-50 border border-sage-100">
+                <button
+                  type="button"
+                  disabled={loading}
+                  onClick={() => setExpenseFor('self')}
+                  className={`flex items-center justify-center gap-2 rounded-xl px-3 py-3 text-xs font-bold transition-all ${
+                    expenseFor === 'self'
+                      ? 'bg-white text-sage-800 shadow-sm border border-sage-100'
+                      : 'text-sage-400 border border-transparent'
+                  }`}
+                >
+                  <User className="w-4 h-4" />
+                  <span>Saya</span>
+                </button>
+                <button
+                  type="button"
+                  disabled={loading}
+                  onClick={() => setExpenseFor('partner')}
+                  className={`flex items-center justify-center gap-2 rounded-xl px-3 py-3 text-xs font-bold transition-all min-w-0 ${
+                    expenseFor === 'partner'
+                      ? 'bg-white text-rose-600 shadow-sm border border-rose-100'
+                      : 'text-sage-400 border border-transparent'
+                  }`}
+                >
+                  <Heart className="w-4 h-4 shrink-0" />
+                  <span className="truncate">{partnerName}</span>
+                </button>
+                <button
+                  type="button"
+                  disabled={loading}
+                  onClick={() => setExpenseFor('shared')}
+                  className={`flex items-center justify-center gap-2 rounded-xl px-3 py-3 text-xs font-bold transition-all min-w-0 ${
+                    expenseFor === 'shared'
+                      ? 'bg-white text-violet-600 shadow-sm border border-violet-100'
+                      : 'text-sage-400 border border-transparent'
+                  }`}
+                >
+                  <Users className="w-4 h-4 shrink-0" />
+                  <span className="truncate">Bersama</span>
+                </button>
+              </div>
+            </div>
 
             {/* Category Grid */}
             <div className="space-y-3">

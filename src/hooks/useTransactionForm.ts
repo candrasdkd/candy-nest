@@ -2,13 +2,22 @@ import { useState, useEffect, useRef } from 'react';
 import { useTransactions } from '../hooks/useTransactions';
 import { Category, EXPENSE_CATEGORIES, MAX_AMOUNT, parseRupiah, Transaction } from '../types';
 import { format } from 'date-fns';
+import { useAuthStore } from '../store/useAuthStore';
+
+export type ExpenseFor = 'self' | 'partner' | 'shared';
 
 export function useTransactionForm(onClose: () => void, transactionToEdit?: Transaction | null) {
   const { addTransaction, updateTransaction } = useTransactions();
+  const userProfile = useAuthStore(s => s.userProfile);
   const [amount, setAmount] = useState(transactionToEdit ? (transactionToEdit.amount).toLocaleString('id-ID') : '');
   const [category, setCategory] = useState<Category>(transactionToEdit?.category || 'makan');
   const [description, setDescription] = useState(transactionToEdit?.description || '');
   const [date, setDate] = useState(transactionToEdit?.date || format(new Date(), 'yyyy-MM-dd'));
+  const [expenseFor, setExpenseFor] = useState<ExpenseFor>(() => {
+    if (transactionToEdit?.expenseScope === 'shared') return 'shared';
+    const expenseOwnerId = transactionToEdit?.expenseForUserId || transactionToEdit?.userId;
+    return expenseOwnerId && expenseOwnerId !== userProfile?.uid ? 'partner' : 'self';
+  });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const amountRef = useRef<HTMLInputElement>(null);
@@ -45,6 +54,20 @@ export function useTransactionForm(onClose: () => void, transactionToEdit?: Tran
       return;
     }
 
+    const expenseForUserId = expenseFor === 'self'
+      ? userProfile?.uid
+      : expenseFor === 'partner'
+        ? userProfile?.partnerUid
+        : null;
+    if (expenseFor !== 'shared' && !expenseForUserId) {
+      setError(expenseFor === 'partner' ? 'Data pasangan belum tersedia' : 'Data pengguna belum tersedia');
+      return;
+    }
+
+    const expenseOwnership = expenseFor === 'shared'
+      ? { expenseScope: 'shared' as const }
+      : { expenseScope: 'personal' as const, expenseForUserId: expenseForUserId as string };
+
     setLoading(true);
     try {
       if (transactionToEdit) {
@@ -54,9 +77,17 @@ export function useTransactionForm(onClose: () => void, transactionToEdit?: Tran
           amount: numAmount,
           description: description.trim(),
           date,
+          ...expenseOwnership,
         });
       } else {
-        await addTransaction({ type: 'expense', category, amount: numAmount, description, date });
+        await addTransaction({
+          type: 'expense',
+          category,
+          amount: numAmount,
+          description: description.trim(),
+          date,
+          ...expenseOwnership,
+        });
       }
       onClose();
     } catch (err: any) {
@@ -77,6 +108,9 @@ export function useTransactionForm(onClose: () => void, transactionToEdit?: Tran
     setDescription,
     date,
     setDate,
+    expenseFor,
+    setExpenseFor,
+    partnerName: userProfile?.partnerName || 'Pasangan',
     selectedPotId,
     setSelectedPotId,
     pots,

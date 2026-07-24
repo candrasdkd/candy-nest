@@ -316,6 +316,8 @@ export const useSavingsStore = create<SavingsState>((set, get) => ({
       description: `[Pos ${pot.name}] ${note.trim() || 'Penarikan'}`,
       date,
       addedBy: userProfile.displayName,
+      expenseForUserId: userProfile.uid,
+      expenseScope: 'personal',
       createdAt: new Date().toISOString(),
       relatedPotId: potId,
     });

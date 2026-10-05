@@ -410,6 +410,132 @@ function parseExpenseText(text) {
 
   const lowerText = cleaned.toLowerCase();
 
+  // ─── Deteksi Tanggal ──────────────────────────────────────────────────────
+  const MONTH_MAP = {
+    januari: 0, jan: 0,
+    februari: 1, feb: 1,
+    maret: 2, mar: 2,
+    april: 3, apr: 3,
+    mei: 4,
+    juni: 5, jun: 5,
+    juli: 6, jul: 6,
+    agustus: 7, agu: 7, agus: 7,
+    september: 8, sep: 8, sept: 8,
+    oktober: 9, okt: 9,
+    november: 10, nov: 10,
+    desember: 11, des: 11,
+  };
+
+  let parsedDate = null;
+  let dateMatchStr = "";
+  const now = new Date();
+  const jakartaTodayParts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Jakarta",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(now).reduce((parts, part) => {
+    if (part.type !== "literal") parts[part.type] = parseInt(part.value, 10);
+    return parts;
+  }, {});
+  const todayDate = Date.UTC(jakartaTodayParts.year, jakartaTodayParts.month - 1, jakartaTodayParts.day);
+  let dateError = "";
+
+  // Simpan tanggal sebagai tengah malam UTC agar hasilnya konsisten di Cloud Functions.
+  const makeDate = (year, month, day) => {
+    const candidate = new Date(Date.UTC(year, month, day));
+    if (candidate.getUTCFullYear() !== year || candidate.getUTCMonth() !== month || candidate.getUTCDate() !== day) {
+      return {date: null, error: "Tanggalnya tidak valid. Cek kembali tanggal yang kamu kirim."};
+    }
+    if (candidate.getTime() > todayDate) {
+      return {date: null, error: "Pengeluaran belum bisa dicatat untuk tanggal yang akan datang."};
+    }
+    return {date: candidate, error: ""};
+  };
+  const makeRelativeDate = (daysAgo) => {
+    if (!Number.isSafeInteger(daysAgo) || daysAgo < 0) {
+      return {date: null, error: "Jarak tanggalnya tidak valid. Gunakan tanggal kalender, misalnya 3/10/2026."};
+    }
+    const candidate = new Date(todayDate);
+    candidate.setUTCDate(candidate.getUTCDate() - daysAgo);
+    const year = candidate.getUTCFullYear();
+    if (Number.isNaN(candidate.getTime()) || year < 1000 || year > 9999) {
+      return {date: null, error: "Tanggalnya terlalu jauh. Gunakan tanggal kalender, misalnya 3/10/2026."};
+    }
+    return {date: candidate, error: ""};
+  };
+
+  // "kemarin" / "kemaren"
+  const kemarinMatch = lowerText.match(/\b(kemarin|kemaren)\b/);
+  if (kemarinMatch) {
+    dateMatchStr = kemarinMatch[0];
+    const result = makeRelativeDate(1);
+    parsedDate = result.date;
+    dateError = result.error;
+  }
+
+  // "N hari lalu" / "N hari yang lalu"
+  if (!parsedDate && !dateError) {
+    const hariLaluMatch = lowerText.match(/(\d+)\s*hari\s*(?:yang\s*)?lalu/);
+    const mingguLaluMatch = lowerText.match(/(?:(\d+)\s*minggu|seminggu|sepekan)\s*(?:yang\s*)?lalu/);
+    const relativeMatch = hariLaluMatch || mingguLaluMatch;
+    if (relativeMatch) {
+      dateMatchStr = relativeMatch[0];
+      const daysAgo = hariLaluMatch ? Number(hariLaluMatch[1]) : (mingguLaluMatch[1] ? Number(mingguLaluMatch[1]) * 7 : 7);
+      const result = makeRelativeDate(daysAgo);
+      parsedDate = result.date;
+      dateError = result.error;
+    }
+  }
+
+  // "DD/MM" atau "DD-MM" atau "DD/MM/YYYY"
+  if (!parsedDate && !dateError) {
+    const dmMatch = lowerText.match(/\b(\d{1,2})[/-](\d{1,2})(?:[/-](\d{2,4}))?(?!\d)/);
+    if (dmMatch) {
+      const d = parseInt(dmMatch[1], 10);
+      const m = parseInt(dmMatch[2], 10);
+      const y = dmMatch[3] ?
+        (dmMatch[3].length === 2 ? 2000 + parseInt(dmMatch[3], 10) : parseInt(dmMatch[3], 10)) :
+        jakartaTodayParts.year;
+      dateMatchStr = dmMatch[0];
+      const result = makeDate(y, m - 1, d);
+      parsedDate = result.date;
+      dateError = result.error;
+    }
+  }
+
+  // "DD MonthName" atau "DD MonthName YYYY" → e.g. "3 oktober", "3 okt 2025"
+  if (!parsedDate && !dateError) {
+    const monthNames = Object.keys(MONTH_MAP).join("|");
+    const textMonthRe = new RegExp(`(\\d{1,2})\\s+(${monthNames})(?:\\s+(\\d{2,4}))?`, "i");
+    const textMonthMatch = lowerText.match(textMonthRe);
+    if (textMonthMatch) {
+      const d = parseInt(textMonthMatch[1], 10);
+      const m = MONTH_MAP[textMonthMatch[2].toLowerCase()];
+      const y = textMonthMatch[3] ?
+        (textMonthMatch[3].length === 2 ? 2000 + parseInt(textMonthMatch[3], 10) : parseInt(textMonthMatch[3], 10)) :
+        jakartaTodayParts.year;
+      dateMatchStr = textMonthMatch[0];
+      const result = makeDate(y, m, d);
+      parsedDate = result.date;
+      dateError = result.error;
+    }
+  }
+
+  // These phrases do not identify a specific day; ask for an exact date instead of silently using today.
+  if (!parsedDate && !dateError && /\b(minggu|bulan|tahun)\s*(?:yang\s*)?lalu\b/.test(lowerText)) {
+    dateError = "Frasa itu belum menentukan tanggal yang tepat. Tulis tanggal kalender, misalnya 3/10/2026.";
+  }
+  if (!parsedDate && !dateError && /\b(besok|lusa|minggu\s+depan|bulan\s+depan|tahun\s+depan)\b/.test(lowerText)) {
+    dateError = "Tanggal masa depan belum bisa dicatat. Gunakan tanggal pengeluaran yang sudah terjadi.";
+  }
+
+  // Default ke hari ini
+  if (!parsedDate && !dateError) {
+    parsedDate = new Date(todayDate);
+  }
+  // ─────────────────────────────────────────────────────────────────────────
+
   // Deteksi kepemilikan/scope (Saya / Bersama / Pasangan)
   let target = "self"; // 'self' | 'partner' | 'shared'
   let scope = "personal"; // 'personal' | 'shared'
@@ -433,6 +559,10 @@ function parseExpenseText(text) {
   } else {
     // Ambil sisa teks sebagai deskripsi/catatan
     note = cleaned.replace(matchedStr, "").trim();
+    // Bersihkan keyword tanggal dari catatan
+    if (dateMatchStr) {
+      note = note.replace(new RegExp(dateMatchStr.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i"), "");
+    }
     // Hilangkan kata awalan 'tf', 'beli', 'bayar' jika ada
     note = note.replace(/^(?:tf|transfer|beli|bayar)\s+/i, "");
     // Bersihkan keyword scope dari catatan agar rapi
@@ -469,6 +599,9 @@ function parseExpenseText(text) {
     categoryEmoji: detected.emoji,
     target,
     scope,
+    date: parsedDate,
+    dateError,
+    isBackdated: parsedDate && parsedDate.getTime() < todayDate,
   };
 }
 
@@ -546,6 +679,7 @@ async function handleStart(chatId, fromUser, messageId) {
         "• <code>makan 25rb mie ayam</code>\n" +
         "• <code>bensin 50k</code>\n" +
         "• <code>belanja 150k alfamart</code>\n\n" +
+        "Kalau baru sempat mencatat, tambahkan tanggalnya, misalnya <code>kemarin</code>, <code>2 hari lalu</code>, atau <code>1 minggu lalu</code>.\n\n" +
         "💡 <i>Ketik /rekap untuk melihat total pengeluaran hari ini.</i>",
         messageId,
     );
@@ -677,6 +811,8 @@ async function handleHelp(chatId, messageId) {
       "• <code>tagihan pln 200rb</code>\n" +
       "• <code>servis motor 75k</code>\n" +
       "• <code>obat 30k apotek k24</code>\n\n" +
+      "<b>Catat tanggal yang terlewat:</b> tambahkan <code>kemarin</code>, <code>2 hari lalu</code>, <code>1 minggu lalu</code>, atau tanggal <code>3/10/2026</code> / <code>3 Okt 2026</code> pada pesan.\n" +
+      "Untuk frasa seperti <code>minggu lalu</code> atau <code>bulan lalu</code>, tulis tanggal pastinya agar tidak salah dicatat.\n\n" +
       "<b>Perintah Tersedia:</b>\n" +
       "• /rekap - Lihat pengeluaran hari ini\n" +
       "• /connect KODE - Hubungkan akun CandyNest\n" +
@@ -749,7 +885,23 @@ async function handleExpenseRecord(chatId, text, messageId) {
     return;
   }
 
-  const today = new Date().toLocaleDateString("en-CA", {timeZone: "Asia/Jakarta"});
+  if (parsed.dateError) {
+    await sendTelegram(
+        chatId,
+        `⚠️ ${parsed.dateError}\n\nContoh tanggal: <code>kemarin</code>, <code>2 hari lalu</code>, <code>1 minggu lalu</code>, atau <code>3/10/2026</code>.`,
+        messageId,
+    );
+    return;
+  }
+
+  const txDateStr = parsed.date.toISOString().slice(0, 10);
+  const txDateDisplay = parsed.date.toLocaleDateString("id-ID", {
+    timeZone: "UTC",
+    weekday: "short",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
   const displayName = userData.displayName || "Saya";
   const partnerUid = await getPartnerUid(userDoc.id, userData.coupleId, userData.partnerUid);
 
@@ -771,7 +923,7 @@ async function handleExpenseRecord(chatId, text, messageId) {
     category: parsed.category,
     amount: parsed.amount,
     description: parsed.note,
-    date: today,
+    date: txDateStr,
     createdAt: new Date().toISOString(),
     addedBy: displayName,
     expenseScope: parsed.scope,
@@ -790,13 +942,18 @@ async function handleExpenseRecord(chatId, text, messageId) {
     minimumFractionDigits: 0,
   }).format(parsed.amount);
 
+  const backdatedNote = parsed.isBackdated ?
+      `\n⏮️ <i>Dicatat mundur untuk: <b>${txDateDisplay}</b></i>` :
+      "";
+
   const replyText =
       "🍬 <b>Pengeluaran Berhasil Dicatat!</b>\n\n" +
       `💸 <b>Nominal:</b> ${formattedAmount}\n` +
       `${parsed.categoryEmoji} <b>Kategori:</b> ${parsed.categoryLabel}\n` +
       `📝 <b>Catatan:</b> ${escapeHtml(parsed.note)}\n` +
       `🎯 <b>Untuk:</b> <b>${scopeLabel}</b>\n` +
-      `📅 <b>Tanggal:</b> ${today}\n` +
+      `📅 <b>Tanggal:</b> ${txDateDisplay}` +
+      backdatedNote + "\n" +
       `👤 <b>Pencatat:</b> ${escapeHtml(displayName)}\n\n` +
       "<i>Ketuk tombol di bawah jika ingin mengubah kepemilikan:</i>";
 

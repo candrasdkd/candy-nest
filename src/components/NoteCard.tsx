@@ -31,11 +31,21 @@ export function NoteCard({ note, onEdit, onDelete, onPin, onArchive, onWhatsApp,
   };
 
   return (
-    <motion.div
+    <motion.article
       layout
       style={{ backgroundColor: note.color || '#ffffff' }}
+      role="group"
+      tabIndex={0}
+      aria-label={`Catatan ${note.title}. Tekan Enter untuk membuka.`}
       onClick={() => onClick(note)}
-      className={`group rounded-[2rem] p-5 md:p-6 border transition-all duration-300 relative flex flex-col gap-4 cursor-pointer ${note.color && note.color !== '#ffffff'
+      onKeyDown={event => {
+        if (event.target !== event.currentTarget) return;
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault();
+          onClick(note);
+        }
+      }}
+      className={`group rounded-[2rem] p-5 md:p-6 border transition-all duration-300 relative flex flex-col gap-4 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sage-500 ${note.color && note.color !== '#ffffff'
           ? 'border-black/5 shadow-[0_8px_30px_rgb(0,0,0,0.04)]'
           : 'border-sage-100 shadow-sm'
         } hover:shadow-xl hover:shadow-sage-900/5 hover:-translate-y-1 overflow-hidden`}
@@ -44,9 +54,7 @@ export function NoteCard({ note, onEdit, onDelete, onPin, onArchive, onWhatsApp,
 
       <div className="flex items-start justify-between gap-4 relative z-10">
         <div className="space-y-4 flex-1">
-          <h3 className="font-display font-bold text-sage-900 text-base md:text-xl leading-tight line-clamp-2 pr-6">
-            {note.title}
-          </h3>
+          <h3 className="font-display font-bold text-sage-900 text-base md:text-xl leading-tight line-clamp-2 pr-6">{note.title}</h3>
           
           <div className="flex items-center gap-2 text-[10px] font-bold text-sage-400 uppercase tracking-widest">
             <span>{note.content.substring(0, 40)}{note.content.length > 40 ? '...' : ''}</span>
@@ -63,6 +71,7 @@ export function NoteCard({ note, onEdit, onDelete, onPin, onArchive, onWhatsApp,
           <Pin className={`w-4 h-4 ${note.isPinned ? 'fill-current' : 'rotate-45'}`} />
         </button>
       </div>
+
 
       <div className="flex flex-col gap-4 pt-4 mt-auto border-t border-black/5 relative z-10" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between">
@@ -116,6 +125,6 @@ export function NoteCard({ note, onEdit, onDelete, onPin, onArchive, onWhatsApp,
           </div>
         </div>
       </div>
-    </motion.div>
+    </motion.article>
   );
 }

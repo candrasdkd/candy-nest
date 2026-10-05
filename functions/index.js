@@ -795,6 +795,211 @@ async function handleRekap(chatId, messageId) {
 }
 
 /**
+ * Format a number as Indonesian Rupiah.
+ * @param {number} amount
+ * @return {string}
+ */
+function formatRupiah(amount) {
+  return new Intl.NumberFormat("id-ID", {
+    style: "currency",
+    currency: "IDR",
+    minimumFractionDigits: 0,
+  }).format(amount);
+}
+
+/**
+ * Get today's calendar date in the Jakarta time zone.
+ * @return {string}
+ */
+function getJakartaToday() {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Jakarta",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date());
+}
+
+/**
+ * Send an expense summary for the current week or month.
+ * @param {number|string} chatId
+ * @param {number} messageId
+ * @param {"week"|"month"} period
+ */
+async function handlePeriodRekap(chatId, messageId, period) {
+  const userSnap = await db.collection("users")
+      .where("telegramChatId", "==", chatId)
+      .limit(1)
+      .get();
+
+  if (userSnap.empty) {
+    await sendTelegram(chatId, "⚠️ Hubungkan akunmu dulu dengan <code>/connect KODE_UNDANGAN</code>.", messageId);
+    return;
+  }
+
+  const userData = userSnap.docs[0].data();
+  if (!userData.coupleId) {
+    await sendTelegram(chatId, "⚠️ Akunmu belum terhubung ke pasangan di CandyNest.", messageId);
+    return;
+  }
+
+  const today = getJakartaToday();
+  const todayDate = new Date(`${today}T00:00:00.000Z`);
+  let startDate;
+  let title;
+
+  if (period === "week") {
+    const daysSinceMonday = (todayDate.getUTCDay() + 6) % 7;
+    todayDate.setUTCDate(todayDate.getUTCDate() - daysSinceMonday);
+    startDate = todayDate.toISOString().slice(0, 10);
+    title = "Rekap Minggu Ini";
+  } else {
+    startDate = `${today.slice(0, 7)}-01`;
+    title = "Rekap Bulan Ini";
+  }
+
+  const txSnap = await db.collection("transactions")
+      .where("coupleId", "==", userData.coupleId)
+      .where("date", ">=", startDate)
+      .where("date", "<=", today)
+      .get();
+
+  let expenses = 0;
+  const categories = new Map();
+  txSnap.forEach((doc) => {
+    const tx = doc.data();
+    const amount = Number(tx.amount) || 0;
+    if (tx.type === "expense") {
+      expenses += amount;
+      const category = getCategoryLabel(tx.category);
+      categories.set(category, (categories.get(category) || 0) + amount);
+    }
+  });
+
+  const categoryLines = [...categories.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 3)
+      .map(([category, amount]) => `• ${escapeHtml(category)}: ${formatRupiah(amount)}`)
+      .join("\n");
+
+  let budgetLine = "";
+  if (period === "month") {
+    const budgetSnap = await db.collection("monthlyBudgets").doc(userData.coupleId).get();
+    if (budgetSnap.exists) {
+      const monthlyBudget = Number(budgetSnap.data().amount) || 0;
+      const remaining = monthlyBudget - expenses;
+      const remainingLabel = remaining >= 0 ? "Sisa anggaran" : "Melebihi anggaran";
+      budgetLine = `\n📌 <b>${remainingLabel}:</b> ${formatRupiah(Math.abs(remaining))}`;
+    } else {
+      budgetLine = "\n📌 Anggaran belum diatur. Kirim <code>/setbudget 5000000</code> untuk menetapkan batas bulanan bersama.";
+    }
+  }
+
+  const rangeLabel = period === "week" ? `${startDate} s.d. ${today}` : today.slice(0, 7);
+  const message =
+      `📊 <b>${title}</b>\n📅 <code>${rangeLabel}</code>\n\n` +
+      `💸 <b>Total Pengeluaran:</b> ${formatRupiah(expenses)}` +
+      budgetLine +
+      (categoryLines ? `\n\n<b>Pengeluaran terbesar:</b>\n${categoryLines}` : "\n\nBelum ada pengeluaran pada periode ini.");
+
+  await sendTelegram(chatId, message, messageId);
+}
+
+/**
+ * Set the shared monthly spending limit for a couple.
+ * @param {number|string} chatId
+ * @param {string} text
+ * @param {number} messageId
+ */
+async function handleSetBudget(chatId, text, messageId) {
+  const userSnap = await db.collection("users")
+      .where("telegramChatId", "==", chatId)
+      .limit(1)
+      .get();
+  if (userSnap.empty) {
+    await sendTelegram(chatId, "⚠️ Hubungkan akunmu dulu dengan <code>/connect KODE_UNDANGAN</code>.", messageId);
+    return;
+  }
+
+  const userDoc = userSnap.docs[0];
+  const userData = userDoc.data();
+  if (!userData.coupleId) {
+    await sendTelegram(chatId, "⚠️ Akunmu belum terhubung ke pasangan di CandyNest.", messageId);
+    return;
+  }
+
+  const parsed = parseExpenseText(text.replace(/^\/setbudget(?:@\w+)?\s*/i, ""));
+  if (!parsed || parsed.amount > 100000000) {
+    await sendTelegram(chatId, "Formatnya: <code>/setbudget 5000000</code> (maksimum Rp100.000.000 per bulan).", messageId);
+    return;
+  }
+
+  await db.collection("monthlyBudgets").doc(userData.coupleId).set({
+    coupleId: userData.coupleId,
+    amount: parsed.amount,
+    updatedAt: new Date().toISOString(),
+    updatedBy: userDoc.id,
+  }, {merge: true});
+
+  await sendTelegram(chatId, `✅ Anggaran bulanan bersama diatur ke <b>${formatRupiah(parsed.amount)}</b>. Ubah kapan saja dengan <code>/setbudget NOMINAL</code>.`, messageId);
+}
+
+/**
+ * Offer to undo the latest expense recorded by this Telegram account.
+ * @param {number|string} chatId
+ * @param {number} messageId
+ */
+async function handleUndo(chatId, messageId) {
+  const userSnap = await db.collection("users")
+      .where("telegramChatId", "==", chatId)
+      .limit(1)
+      .get();
+
+  if (userSnap.empty) {
+    await sendTelegram(chatId, "⚠️ Hubungkan akunmu dulu dengan <code>/connect KODE_UNDANGAN</code>.", messageId);
+    return;
+  }
+
+  const userDoc = userSnap.docs[0];
+  const userData = userDoc.data();
+  if (!userData.coupleId) {
+    await sendTelegram(chatId, "⚠️ Akunmu belum terhubung ke pasangan di CandyNest.", messageId);
+    return;
+  }
+  const txSnap = await db.collection("transactions")
+      .where("coupleId", "==", userData.coupleId)
+      .get();
+  const latest = txSnap.docs
+      .filter((doc) => {
+        const tx = doc.data();
+        return tx.userId === userDoc.id && tx.source === "telegram_bot" && tx.type === "expense";
+      })
+      .sort((a, b) => (b.data().createdAt || "").localeCompare(a.data().createdAt || ""))[0];
+
+  if (!latest) {
+    await sendTelegram(chatId, "Belum ada pengeluaran dari bot yang bisa dibatalkan.", messageId);
+    return;
+  }
+
+  const tx = latest.data();
+  const createdAt = new Date(tx.createdAt || 0).getTime();
+  if (!Number.isFinite(createdAt) || Date.now() - createdAt > 24 * 60 * 60 * 1000) {
+    await sendTelegram(chatId, "Transaksi bot terakhirmu sudah lewat 24 jam, jadi tidak bisa dibatalkan lewat <code>/undo</code>.", messageId);
+    return;
+  }
+
+  await sendTelegram(
+      chatId,
+      `Batalkan transaksi ini?\n\n💸 <b>${formatRupiah(Number(tx.amount) || 0)}</b> — ${escapeHtml(tx.description || getCategoryLabel(tx.category))}\n📅 ${escapeHtml(tx.date)}`,
+      messageId,
+      {inline_keyboard: [[
+        {text: "🗑 Ya, batalkan", callback_data: `undo:confirm:${latest.id}`},
+        {text: "Jangan", callback_data: `undo:cancel:${latest.id}`},
+      ]]},
+  );
+}
+
+/**
  * Handle bantuan format
  */
 async function handleHelp(chatId, messageId) {
@@ -815,6 +1020,10 @@ async function handleHelp(chatId, messageId) {
       "Untuk frasa seperti <code>minggu lalu</code> atau <code>bulan lalu</code>, tulis tanggal pastinya agar tidak salah dicatat.\n\n" +
       "<b>Perintah Tersedia:</b>\n" +
       "• /rekap - Lihat pengeluaran hari ini\n" +
+      "• /rekapminggu - Rekap dari Senin sampai hari ini\n" +
+      "• /rekapbulan atau /sisa - Rekap bulanan dan sisa anggaran\n" +
+      "• /setbudget NOMINAL - Atur anggaran bulanan bersama\n" +
+      "• /undo - Batalkan pengeluaran bot terakhir (maks. 24 jam)\n" +
       "• /connect KODE - Hubungkan akun CandyNest\n" +
       "• /disconnect - Putuskan koneksi akun\n" +
       "• /help - Bantuan format",
@@ -971,6 +1180,38 @@ async function handleCallbackQuery(callbackQuery) {
   const chatId = message?.chat?.id;
   const messageId = message?.message_id;
 
+  if (data.startsWith("undo:")) {
+    const [, action, txId] = data.split(":");
+    const linkedUserSnap = await db.collection("users")
+        .where("telegramChatId", "==", chatId)
+        .limit(1)
+        .get();
+    if (!linkedUserSnap.empty && txId) {
+      const linkedUser = linkedUserSnap.docs[0];
+      const txRef = db.collection("transactions").doc(txId);
+      const txSnap = await txRef.get();
+      if (txSnap.exists) {
+        const tx = txSnap.data();
+        const ownedBySender = tx.userId === linkedUser.id &&
+            tx.coupleId === linkedUser.data().coupleId &&
+            tx.source === "telegram_bot" && tx.type === "expense";
+        if (ownedBySender && action === "confirm") {
+          await txRef.delete();
+          await answerCallback(queryId, "Transaksi dibatalkan.");
+          await editTelegramMessage(chatId, messageId, "🗑 <b>Transaksi dibatalkan.</b>");
+          return;
+        }
+        if (ownedBySender && action === "cancel") {
+          await answerCallback(queryId, "Tidak jadi dibatalkan.");
+          await editTelegramMessage(chatId, messageId, "Transaksi tetap tersimpan.");
+          return;
+        }
+      }
+    }
+    await answerCallback(queryId, "Transaksi tidak ditemukan atau bukan milik akunmu.");
+    return;
+  }
+
   if (!data.startsWith("scope:")) {
     await answerCallback(queryId, "Aksi tidak dikenali.");
     return;
@@ -1090,7 +1331,8 @@ exports.telegramWebhook = functions.https.onRequest(async (req, res) => {
   }
 
   try {
-    if (text.startsWith("/start")) {
+    const command = text.split(/\s+/)[0].split("@")[0].toLowerCase();
+    if (command === "/start") {
       const parts = text.split(/\s+/);
       const code = parts[1]?.trim();
 
@@ -1103,7 +1345,7 @@ exports.telegramWebhook = functions.https.onRequest(async (req, res) => {
       return;
     }
 
-    if (text.startsWith("/connect") || text.startsWith("/link")) {
+    if (["/connect", "/link"].includes(command)) {
       const parts = text.split(/\s+/);
       const code = parts[1]?.trim();
       if (!code) {
@@ -1119,19 +1361,43 @@ exports.telegramWebhook = functions.https.onRequest(async (req, res) => {
       return;
     }
 
-    if (text.startsWith("/disconnect")) {
+    if (command === "/disconnect") {
       await handleDisconnect(chatId, message.message_id);
       res.status(200).send("OK");
       return;
     }
 
-    if (text.startsWith("/rekap") || text.startsWith("/hariini")) {
+    if (["/rekap", "/hariini"].includes(command)) {
       await handleRekap(chatId, message.message_id);
       res.status(200).send("OK");
       return;
     }
 
-    if (text.startsWith("/help") || text.startsWith("/bantuan")) {
+    if (["/rekapminggu", "/minggu"].includes(command)) {
+      await handlePeriodRekap(chatId, message.message_id, "week");
+      res.status(200).send("OK");
+      return;
+    }
+
+    if (["/rekapbulan", "/bulan", "/sisa"].includes(command)) {
+      await handlePeriodRekap(chatId, message.message_id, "month");
+      res.status(200).send("OK");
+      return;
+    }
+
+    if (command === "/setbudget") {
+      await handleSetBudget(chatId, text, message.message_id);
+      res.status(200).send("OK");
+      return;
+    }
+
+    if (command === "/undo") {
+      await handleUndo(chatId, message.message_id);
+      res.status(200).send("OK");
+      return;
+    }
+
+    if (["/help", "/bantuan"].includes(command)) {
       await handleHelp(chatId, message.message_id);
       res.status(200).send("OK");
       return;

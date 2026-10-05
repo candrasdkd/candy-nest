@@ -1,16 +1,23 @@
-import { useState, useEffect } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useState, useEffect, useRef } from 'react';
+import { Link, useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { StickyNote, Plus, Search, Pin, X, Loader2, Archive, Inbox, Camera, ScanLine, HelpCircle, Info, Globe, Check, Download } from 'lucide-react';
+import { StickyNote, Plus, Search, Pin, X, Loader2, Archive, Inbox, Camera, ScanLine, HelpCircle, Info, Globe, Check, Download, Heading1, List, ListChecks, Tag, Link2, AtSign, UserRound } from 'lucide-react';
 import { useNotesLogic } from '../hooks/useNotesLogic';
 import { NoteCard } from '../components/NoteCard';
 import NoteDetailModal from '../components/NoteDetailModal';
-import { FamilyNote } from '../types/note';
+import { useAuthStore } from '../store/useAuthStore';
 
 export default function Notes() {
+  const noteTemplates = [
+    { label: 'Daftar belanja', title: 'Daftar Belanja', content: '# Belanja\n> Susu\n> Telur\n> Sayur' },
+    { label: 'Agenda keluarga', title: 'Agenda Keluarga', content: '# Agenda\nTanggal: \n> Tentukan waktu\n> Siapkan kebutuhan\n> Konfirmasi dengan keluarga' },
+    { label: 'Rencana', title: 'Rencana', content: '# Tujuan\n\n# Langkah\n> Langkah pertama\n> Langkah berikutnya\n\n# Catatan' }
+  ];
   const {
     notes,
     loading,
+    error,
+    clearError,
     searchQuery,
     setSearchQuery,
     isAdding,
@@ -27,6 +34,8 @@ export default function Notes() {
     setFormData,
     tempFiles,
     setTempFiles,
+    originalFiles,
+    setOriginalFiles,
     previewUrls,
     setPreviewUrls,
     fullScreenUrl,
@@ -49,10 +58,85 @@ export default function Notes() {
     archiveNote,
     handleDelete
   } = useNotesLogic();
+  const coupleId = useAuthStore(state => state.userProfile?.coupleId);
+  const contentTextareaRef = useRef<HTMLTextAreaElement>(null);
+  const [isPreviewing, setIsPreviewing] = useState(false);
+
+  const insertContentPrefix = (prefix: string) => {
+    const textarea = contentTextareaRef.current;
+    if (!textarea) return;
+    const content = formData.content;
+    const { selectionStart, selectionEnd } = textarea;
+    const lineStart = content.lastIndexOf('\n', Math.max(0, selectionStart - 1)) + 1;
+    let nextContent: string;
+    let cursorPosition: number;
+
+    if (selectionStart === selectionEnd) {
+      nextContent = `${content.slice(0, lineStart)}${prefix}${content.slice(lineStart)}`;
+      cursorPosition = selectionStart + prefix.length;
+    } else {
+      const foundLineEnd = content.indexOf('\n', selectionEnd);
+      const lineEnd = foundLineEnd === -1 ? content.length : foundLineEnd;
+      const selectedLines = content.slice(lineStart, lineEnd);
+      const prefixedLines = selectedLines.split('\n').map(line => `${prefix}${line}`).join('\n');
+      nextContent = `${content.slice(0, lineStart)}${prefixedLines}${content.slice(lineEnd)}`;
+      cursorPosition = lineStart + prefixedLines.length;
+    }
+
+    setFormData({ ...formData, content: nextContent });
+    requestAnimationFrame(() => {
+      textarea.focus();
+      textarea.setSelectionRange(cursorPosition, cursorPosition);
+    });
+  };
+
+  const useContentAsTitle = () => {
+    const textarea = contentTextareaRef.current;
+    if (!textarea) return;
+    const content = formData.content;
+    const { selectionStart, selectionEnd } = textarea;
+    const lineStart = content.lastIndexOf('\n', Math.max(0, selectionStart - 1)) + 1;
+    const lineEnd = content.indexOf('\n', selectionEnd);
+    const text = selectionStart === selectionEnd
+      ? content.slice(lineStart, lineEnd === -1 ? content.length : lineEnd)
+      : content.slice(selectionStart, selectionEnd);
+    const title = text.replace(/\s+/g, ' ').trim();
+    if (title) setFormData({ ...formData, title });
+    requestAnimationFrame(() => textarea.focus());
+  };
 
   const [searchParams, setSearchParams] = useSearchParams();
   const noteId = searchParams.get('id');
   const action = searchParams.get('action');
+
+  const renderEditorPreview = () => {
+    const lines = formData.content.split('\n');
+    if (!formData.content.trim()) return <p className="text-sm italic text-sage-400">Pratinjau isi catatan akan muncul di sini.</p>;
+
+    return <div className="space-y-2">
+      {lines.map((line, index) => {
+        const trimmed = line.trim();
+        if (!trimmed) return <div key={index} className="h-3" />;
+        if (/^#{1,6}\s/.test(trimmed)) return <h3 key={index} className="pt-3 text-lg font-bold text-sage-900">{trimmed.replace(/^#+\s*/, '')}</h3>;
+        const checkbox = trimmed.match(/^>(x?)\s?(.*)$/i);
+        if (checkbox) return <div key={index} className={`flex items-center gap-3 rounded-xl px-3 py-2 ${checkbox[1] ? 'bg-sage-100 text-sage-400 line-through' : 'bg-white text-sage-800'}`}><span className="flex h-5 w-5 items-center justify-center rounded border border-sage-300">{checkbox[1] ? '✓' : ''}</span>{checkbox[2]}</div>;
+        if (/^[-*•]\s+/.test(trimmed)) return <div key={index} className="flex items-start gap-2 px-2 text-sage-700"><span className="text-sage-400">•</span><span>{trimmed.replace(/^[-*•]\s+/, '')}</span></div>;
+        if (/^https?:\/\/[^\s]+$/i.test(trimmed)) return <a key={index} href={trimmed} target="_blank" rel="noopener noreferrer" className="block break-all rounded-xl bg-white p-3 text-sm text-blue-700 underline">{trimmed}</a>;
+        const colonIndex = line.indexOf(':');
+        if (colonIndex >= 0) {
+          const label = line.slice(0, colonIndex).trim();
+          const value = line.slice(colonIndex + 1).trim();
+          const isSecret = /pass|pwd|sandi|pin/i.test(label);
+          return <div key={index} className="rounded-xl bg-white p-3"><div className="text-[10px] font-bold uppercase tracking-widest text-sage-400">{label}</div><div className="mt-1 break-all font-semibold text-sage-800">{isSecret && value ? '••••••••' : value}</div></div>;
+        }
+        return <p key={index} className="break-words leading-relaxed text-sage-700">{line}</p>;
+      })}
+    </div>;
+  };
+
+  useEffect(() => {
+    if (!isAdding) setIsPreviewing(false);
+  }, [isAdding]);
 
   useEffect(() => {
     if (noteId && notes.length > 0) {
@@ -78,6 +162,17 @@ export default function Notes() {
       <div className="min-h-[60vh] flex flex-col items-center justify-center gap-4">
         <Loader2 className="w-10 h-10 animate-spin text-sage-300" />
         <p className="text-sm text-sage-400 font-medium">Membuka buku catatan...</p>
+      </div>
+    );
+  }
+
+  if (!coupleId) {
+    return (
+      <div className="min-h-[70vh] flex flex-col items-center justify-center px-6 text-center">
+        <div className="w-20 h-20 bg-rose-50 rounded-[2rem] flex items-center justify-center mb-6"><StickyNote className="w-9 h-9 text-rose-300" /></div>
+        <h1 className="text-3xl font-display text-sage-900 mb-3">Hubungkan akun pasangan</h1>
+        <p className="text-sm text-sage-500 max-w-sm mb-6">Catatan keluarga tersedia setelah akunmu terhubung dengan pasangan.</p>
+        <Link to="/settings" className="px-7 py-3 rounded-2xl bg-sage-900 text-white font-bold">Buka Pengaturan</Link>
       </div>
     );
   }
@@ -182,9 +277,9 @@ export default function Notes() {
                       <Info className="w-5 h-5" />
                     </div>
                     <div className="space-y-1">
-                      <h3 className="text-sm font-bold text-sage-900">Label & Password</h3>
+                      <h3 className="text-sm font-bold text-sage-900">Label & Nilai</h3>
                       <p className="text-xs text-sage-500 leading-relaxed">
-                        Tulis <code className="bg-sage-50 px-1.5 py-0.5 rounded font-mono text-amber-600 font-bold">Label: Nilai</code>. Kata "Pass/PIN" bakal bikin nilainya otomatis disensor.
+                        Tulis <code className="bg-sage-50 px-1.5 py-0.5 rounded font-mono text-amber-600 font-bold">Label: Nilai</code> untuk merapikan informasi seperti nama, alamat, atau nomor telepon.
                       </p>
                     </div>
                   </div>
@@ -238,7 +333,7 @@ export default function Notes() {
           </div>
         </div>
 
-        <div className="bg-white rounded-2xl p-1 border border-sage-100 shadow-sm flex items-center gap-2">
+        <div className="bg-white rounded-2xl p-1 border border-sage-100 shadow-sm flex flex-col sm:flex-row sm:items-center gap-2">
           <div className="relative flex-1">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-sage-300" />
             <input
@@ -252,8 +347,15 @@ export default function Notes() {
         </div>
       </section>
 
+      {error && (
+        <div role="alert" className="mb-5 flex items-center justify-between gap-3 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+          <span>{error}</span>
+          <button type="button" onClick={clearError} className="font-bold underline">Tutup</button>
+        </div>
+      )}
+
       {/* Notes Content */}
-      {notes.length === 0 ? (
+      {filteredNotes.length === 0 ? (
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -264,15 +366,15 @@ export default function Notes() {
           </div>
           <div className="space-y-1">
             <h3 className="text-xl font-display text-sage-900">
-              {activeTab === 'active' ? 'Belum ada catatan' : 'Arsip kosong'}
+              {searchQuery ? 'Tidak ada catatan yang cocok' : activeTab === 'active' ? 'Belum ada catatan' : 'Arsip kosong'}
             </h3>
             <p className="text-sage-400 max-w-xs mx-auto text-sm leading-relaxed">
-              {activeTab === 'active'
+              {searchQuery ? 'Coba ubah kata pencarian.' : activeTab === 'active'
                 ? 'Gunakan fitur ini untuk menyimpan informasi penting keluarga.'
                 : 'Catatan yang kamu arsipkan akan muncul di sini.'}
             </p>
           </div>
-          {activeTab === 'active' && (
+          {activeTab === 'active' && !searchQuery && (
             <button
               onClick={() => setIsAdding(true)}
               className="px-8 py-3 bg-sage-50 text-sage-600 rounded-2xl font-bold hover:bg-sage-100 transition-colors inline-flex items-center gap-2"
@@ -329,11 +431,6 @@ export default function Notes() {
             </div>
           )}
 
-          {filteredNotes.length === 0 && searchQuery && (
-            <div className="text-center py-20">
-              <p className="text-sage-300 font-medium italic">Tidak ada catatan yang sesuai dengan pencarian.</p>
-            </div>
-          )}
         </div>
       )}
 
@@ -379,6 +476,7 @@ export default function Notes() {
               className="relative w-full max-w-2xl bg-white rounded-[2.5rem] shadow-2xl flex flex-col max-h-[90vh] overflow-hidden"
             >
               <form onSubmit={handleSubmit} className="flex flex-col h-full overflow-hidden">
+                {error && <div role="alert" className="mx-6 mt-4 sm:mx-8 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-xs font-medium text-rose-700">{error}</div>}
                 <div className="flex-shrink-0 p-6 sm:p-8 pb-4 border-b border-sage-50">
                   <div className="flex items-center justify-between">
                     <h2 className="text-2xl font-display text-sage-900">
@@ -395,6 +493,17 @@ export default function Notes() {
                 </div>
 
                 <div className="flex-1 overflow-y-auto p-6 sm:p-8 space-y-6 scrollbar-hide">
+                  {!editingNote && (
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-bold text-sage-400 uppercase tracking-widest ml-1">Mulai dari templat</label>
+                      <div className="flex flex-wrap gap-2">
+                        {noteTemplates.map(template => (
+                          <button key={template.label} type="button" onClick={() => setFormData({ ...formData, title: template.title, content: template.content })} className="px-3 py-2 rounded-xl bg-sage-50 text-sage-700 text-xs font-bold hover:bg-sage-100">{template.label}</button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  <p className="-mb-4 text-[10px] font-medium text-sage-400">Draf tulisan tersimpan otomatis di perangkat ini.</p>
                   <div className="space-y-1.5">
                     <label className="text-[10px] font-bold text-sage-400 uppercase tracking-widest ml-1">Judul Catatan</label>
                     <input
@@ -409,14 +518,49 @@ export default function Notes() {
 
                   <div className="space-y-1.5">
                     <label className="text-[10px] font-bold text-sage-400 uppercase tracking-widest ml-1">Isi Catatan</label>
-                    <textarea
+                    <div className="flex items-center justify-between rounded-2xl border border-sage-100 bg-white p-2">
+                      <div className="flex items-center gap-1 rounded-xl bg-sage-50 p-1">
+                        <button type="button" onClick={() => setIsPreviewing(false)} aria-pressed={!isPreviewing} className={`rounded-lg px-3 py-2 text-xs font-bold ${!isPreviewing ? 'bg-sage-900 text-white' : 'text-sage-500'}`}>Tulis</button>
+                        <button type="button" onClick={() => setIsPreviewing(true)} aria-pressed={isPreviewing} className={`rounded-lg px-3 py-2 text-xs font-bold ${isPreviewing ? 'bg-sage-900 text-white' : 'text-sage-500'}`}>Pratinjau</button>
+                      </div>
+                      {isPreviewing && <span className="pr-2 text-[10px] font-bold uppercase tracking-wider text-sage-400">Tampilan sebelum simpan</span>}
+                    </div>
+                    {!isPreviewing && <div className="flex flex-wrap items-center gap-1.5 rounded-2xl border border-sage-100 bg-white p-2" role="toolbar" aria-label="Pemformatan isi catatan">
+                      <button type="button" onMouseDown={event => event.preventDefault()} onClick={() => insertContentPrefix('# ')} className="inline-flex items-center gap-1.5 rounded-xl bg-sage-50 px-3 py-2 text-xs font-bold text-sage-700 hover:bg-sage-100" title="Ubah baris menjadi judul bagian">
+                        <Heading1 className="h-4 w-4" /> Judul bagian
+                      </button>
+                      <button type="button" onMouseDown={event => event.preventDefault()} onClick={useContentAsTitle} className="inline-flex items-center gap-1.5 rounded-xl bg-sage-50 px-3 py-2 text-xs font-bold text-sage-700 hover:bg-sage-100" title="Gunakan teks terpilih atau baris aktif sebagai judul catatan">
+                        Judul catatan
+                      </button>
+                      <button type="button" onMouseDown={event => event.preventDefault()} onClick={() => insertContentPrefix('- ')} className="inline-flex items-center gap-1.5 rounded-xl bg-sage-50 px-3 py-2 text-xs font-bold text-sage-700 hover:bg-sage-100" title="Ubah baris menjadi poin daftar">
+                        <List className="h-4 w-4" /> Daftar
+                      </button>
+                      <button type="button" onMouseDown={event => event.preventDefault()} onClick={() => insertContentPrefix('> ')} className="inline-flex items-center gap-1.5 rounded-xl bg-sage-50 px-3 py-2 text-xs font-bold text-sage-700 hover:bg-sage-100" title="Ubah baris menjadi checklist">
+                        <ListChecks className="h-4 w-4" /> Checklist
+                      </button>
+                      <button type="button" onMouseDown={event => event.preventDefault()} onClick={() => insertContentPrefix('Label: ')} className="inline-flex items-center gap-1.5 rounded-xl bg-sage-50 px-3 py-2 text-xs font-bold text-sage-700 hover:bg-sage-100" title="Sisipkan format label dan nilai">
+                        <Tag className="h-4 w-4" /> Label
+                      </button>
+                      <button type="button" onMouseDown={event => event.preventDefault()} onClick={() => insertContentPrefix('Username: ')} className="inline-flex items-center gap-1.5 rounded-xl bg-sage-50 px-3 py-2 text-xs font-bold text-sage-700 hover:bg-sage-100" title="Sisipkan kolom nama pengguna">
+                        <UserRound className="h-4 w-4" /> Username
+                      </button>
+                      <button type="button" onMouseDown={event => event.preventDefault()} onClick={() => insertContentPrefix('Email: ')} className="inline-flex items-center gap-1.5 rounded-xl bg-sage-50 px-3 py-2 text-xs font-bold text-sage-700 hover:bg-sage-100" title="Sisipkan kolom email">
+                        <AtSign className="h-4 w-4" /> Email
+                      </button>
+                      <button type="button" onMouseDown={event => event.preventDefault()} onClick={() => insertContentPrefix('https://')} className="inline-flex items-center gap-1.5 rounded-xl bg-sage-50 px-3 py-2 text-xs font-bold text-sage-700 hover:bg-sage-100" title="Sisipkan tautan web">
+                        <Link2 className="h-4 w-4" /> Tautan
+                      </button>
+                    </div>}
+                    {!isPreviewing ? <textarea
+                      ref={contentTextareaRef}
                       required
                       placeholder="Tuliskan hal penting di sini..."
                       value={formData.content}
                       onChange={e => setFormData({ ...formData, content: e.target.value })}
                       rows={6}
                       className="w-full px-6 py-4 rounded-2xl bg-sage-50 border-none focus:ring-2 focus:ring-sage-900/5 transition-all text-sage-900 leading-relaxed resize-none text-base md:text-sm"
-                    />
+                    /> : <div className="min-h-[10rem] max-h-72 overflow-y-auto rounded-2xl border border-sage-100 bg-sage-50 p-4">{renderEditorPreview()}</div>}
+                    {!isPreviewing && <p className="px-1 text-[11px] text-sage-400">Pilih satu atau beberapa baris, lalu tekan tombol format. Tanpa pilihan, format ditambahkan di awal baris aktif.</p>}
                   </div>
 
                   <div className="space-y-1.5">
@@ -465,10 +609,13 @@ export default function Notes() {
                             type="button"
                             onClick={() => {
                               const newTempFiles = [...tempFiles];
+                              const newOriginalFiles = [...originalFiles];
                               const newPreviewUrls = [...previewUrls];
                               newTempFiles.splice(index, 1);
+                              newOriginalFiles.splice(index, 1);
                               newPreviewUrls.splice(index, 1);
                               setTempFiles(newTempFiles);
+                              setOriginalFiles(newOriginalFiles);
                               setPreviewUrls(newPreviewUrls);
                               URL.revokeObjectURL(url);
                             }}
@@ -540,13 +687,13 @@ export default function Notes() {
                       type="button"
                       onClick={closeForm}
                       className="flex-1 py-4 rounded-2xl font-bold text-sage-500 hover:bg-sage-50 transition-colors"
-                      disabled={isUploading}
+                      disabled={isUploading || isCompressing}
                     >
                       Batal
                     </button>
                     <button
                       type="submit"
-                      disabled={isUploading}
+                      disabled={isUploading || isCompressing}
                       className="flex-[2] py-4 bg-sage-900 text-white rounded-2xl font-bold shadow-xl shadow-sage-900/20 hover:bg-black transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                     >
                       {isUploading && <Loader2 className="w-4 h-4 animate-spin" />}
@@ -604,5 +751,3 @@ export default function Notes() {
     </div>
   );
 }
-
-

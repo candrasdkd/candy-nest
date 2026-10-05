@@ -15,7 +15,13 @@ export function useNotes() {
   const { confirm } = useConfirmStore();
 
   useEffect(() => {
-    if (!userProfile?.coupleId) return;
+    setLoading(true);
+    setNotes([]);
+    setError(null);
+    if (!userProfile?.coupleId) {
+      setLoading(false);
+      return;
+    }
     
     const q = query(
       collection(db, 'family_notes'),
@@ -42,18 +48,28 @@ export function useNotes() {
     });
   }, [userProfile?.coupleId]);
 
-  const uploadNoteImage = async (file: File, maxSizeKB: number = 500): Promise<{ url: string, path: string }> => {
+  const uploadNoteImage = async (file: File): Promise<{ url: string, path: string }> => {
     if (!userProfile?.coupleId) throw new Error('Couple ID not found');
-    
-    // Kompresi sebelum upload
-    const processedFile = await compressImage(file, maxSizeKB).catch(() => file);
-    
-    const path = `notes/${userProfile.coupleId}/${Date.now()}_${processedFile.name}`;
+
+    const path = `notes/${userProfile.coupleId}/${Date.now()}_${Math.random().toString(36).slice(2, 8)}_${file.name}`;
     const storageRef = ref(storage, path);
-    await uploadBytes(storageRef, processedFile);
-    const url = await getDownloadURL(storageRef);
-    return { url, path };
+    await uploadBytes(storageRef, file);
+    try {
+      const url = await getDownloadURL(storageRef);
+      return { url, path };
+    } catch (error) {
+      await deleteObject(storageRef).catch(cleanupError => console.error('Gagal membersihkan unggahan catatan:', cleanupError));
+      throw error;
+    }
   };
+
+  const deleteNoteImages = useCallback(async (paths: string[]) => {
+    const uniquePaths = Array.from(new Set(paths.filter(Boolean)));
+    const results = await Promise.allSettled(uniquePaths.map(path => deleteObject(ref(storage, path))));
+    results.filter(result => result.status === 'rejected').forEach(result => {
+      console.error('Gagal menghapus lampiran catatan:', result.reason);
+    });
+  }, []);
 
   const addNote = useCallback(async (title: string, content: string, color?: string, images?: { url: string, path: string }[]) => {
     if (!userProfile?.coupleId || !userProfile?.uid) return;
@@ -99,19 +115,17 @@ export function useNotes() {
     try {
       const pathsToDelete = new Set(note.imagePaths || []);
       if (note.imagePath) pathsToDelete.add(note.imagePath);
-
-      const deletePromises = Array.from(pathsToDelete).map(path => {
-        const imageRef = ref(storage, path);
-        return deleteObject(imageRef).catch(console.error);
-      });
-      await Promise.all(deletePromises);
       await deleteDoc(doc(db, 'family_notes', note.id));
+      await deleteNoteImages(Array.from(pathsToDelete));
     } catch (err: any) {
       console.error('Error deleting note:', err);
       setError('Gagal menghapus catatan.');
       throw err;
     }
-  }, []);
+  }, [deleteNoteImages]);
+
+  const clearError = useCallback(() => setError(null), []);
+  const reportError = useCallback((message: string) => setError(message), []);
 
   const archiveNote = useCallback(async (id: string, isArchived: boolean) => {
     try {
@@ -141,11 +155,14 @@ export function useNotes() {
     notes,
     loading,
     error,
+    clearError,
+    reportError,
     addNote,
     updateNote,
     deleteNote,
     archiveNote,
     uploadNoteImage,
+    deleteNoteImages,
     handleDelete,
     compressImage
   };

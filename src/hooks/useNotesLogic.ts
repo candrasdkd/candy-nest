@@ -1,13 +1,15 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { format } from 'date-fns';
 import { id } from 'date-fns/locale';
 import { useNotes } from './useNotes';
 import { useConfirmStore } from '../store/useConfirmStore';
 import { FamilyNote } from '../types/note';
+import { useAuthStore } from '../store/useAuthStore';
 
 export const useNotesLogic = () => {
-  const { notes, loading, addNote, updateNote, archiveNote, uploadNoteImage, handleDelete, compressImage: compress } = useNotes();
+  const { notes, loading, error, clearError, reportError, addNote, updateNote, archiveNote, uploadNoteImage, deleteNoteImages, handleDelete, compressImage: compress } = useNotes();
   const { confirm, close } = useConfirmStore();
+  const userProfile = useAuthStore(state => state.userProfile);
 
   const [searchQuery, setSearchQuery] = useState('');
   const [isAdding, setIsAdding] = useState(false);
@@ -19,6 +21,8 @@ export const useNotesLogic = () => {
   const [isUploading, setIsUploading] = useState(false);
   const [isCompressing, setIsCompressing] = useState(false);
   const [compressionTarget, setCompressionTarget] = useState(300);
+  const [originalFiles, setOriginalFiles] = useState<File[]>([]);
+  const [hydratedDraftKey, setHydratedDraftKey] = useState<string | null>(null);
 
   const [formData, setFormData] = useState({
     title: '',
@@ -29,6 +33,45 @@ export const useNotesLogic = () => {
   const [tempFiles, setTempFiles] = useState<File[]>([]);
   const [previewUrls, setPreviewUrls] = useState<string[]>([]);
   const [fullScreenUrl, setFullScreenUrl] = useState<string | null>(null);
+
+  const draftKey = userProfile?.uid && userProfile.coupleId
+    ? `candynest:note-draft:${userProfile.coupleId}:${userProfile.uid}:${editingNote ? `edit:${editingNote.id}` : 'new'}`
+    : null;
+
+  useEffect(() => {
+    setHydratedDraftKey(null);
+    if (!isAdding || !draftKey) return;
+    try {
+      const rawDraft = localStorage.getItem(draftKey);
+      if (rawDraft) {
+        const draft = JSON.parse(rawDraft);
+        setFormData(current => ({
+          ...current,
+          title: typeof draft.title === 'string' ? draft.title : current.title,
+          content: typeof draft.content === 'string' ? draft.content : current.content,
+          color: typeof draft.color === 'string' ? draft.color : current.color,
+          existingImages: Array.isArray(draft.existingImages) ? draft.existingImages : current.existingImages
+        }));
+      }
+    } catch (draftError) {
+      console.warn('Draf catatan lokal tidak dapat dipulihkan:', draftError);
+    }
+    setHydratedDraftKey(draftKey);
+  }, [isAdding, draftKey]);
+
+  useEffect(() => {
+    if (!isAdding || !draftKey || hydratedDraftKey !== draftKey) return;
+    try {
+      localStorage.setItem(draftKey, JSON.stringify({
+        title: formData.title,
+        content: formData.content,
+        color: formData.color,
+        existingImages: formData.existingImages
+      }));
+    } catch (draftError) {
+      console.warn('Draf catatan lokal tidak dapat disimpan:', draftError);
+    }
+  }, [isAdding, draftKey, hydratedDraftKey, formData]);
 
   const NOTE_COLORS = [
     { name: 'Putih', value: '#ffffff' },
@@ -48,17 +91,26 @@ export const useNotesLogic = () => {
 
   const filteredNotes = useMemo(() => {
     return notes.filter(note => {
-      const matchesSearch = note.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        note.content.toLowerCase().includes(searchQuery.toLowerCase());
+      const normalizedSearch = searchQuery.trim().toLowerCase();
+      const matchesSearch = note.title.toLowerCase().includes(normalizedSearch) ||
+        note.content.toLowerCase().includes(normalizedSearch);
       const matchesTab = activeTab === 'active' ? !note.isArchived : note.isArchived;
       return matchesSearch && matchesTab;
     });
   }, [notes, searchQuery, activeTab]);
 
-  const pinnedNotes = useMemo(() => filteredNotes.filter(n => n.isPinned), [filteredNotes]);
-  const otherNotes = useMemo(() => filteredNotes.filter(n => !n.isPinned), [filteredNotes]);
+  const sortedNotes = useMemo(() => [...filteredNotes].sort((a, b) => {
+    const dateValue = (value: FamilyNote['updatedAt'] | FamilyNote['createdAt']) => {
+      if (!value) return 0;
+      return value instanceof Date ? value.getTime() : value.toDate().getTime();
+    };
+    return dateValue(b.updatedAt || b.createdAt) - dateValue(a.updatedAt || a.createdAt);
+  }), [filteredNotes]);
 
+  const pinnedNotes = useMemo(() => sortedNotes.filter(n => n.isPinned), [sortedNotes]);
+  const otherNotes = useMemo(() => sortedNotes.filter(n => !n.isPinned), [sortedNotes]);
   const closeForm = () => {
+    previewUrls.forEach(url => URL.revokeObjectURL(url));
     setIsAdding(false);
     setEditingNote(null);
     setFormData({
@@ -68,7 +120,12 @@ export const useNotesLogic = () => {
       existingImages: []
     });
     setTempFiles([]);
+    setOriginalFiles([]);
     setPreviewUrls([]);
+    clearError();
+    if (draftKey) {
+      try { localStorage.removeItem(draftKey); } catch (draftError) { console.warn('Draf catatan lokal tidak dapat dihapus:', draftError); }
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -81,15 +138,15 @@ export const useNotesLogic = () => {
         message: 'Apakah Anda yakin ingin menyimpan perubahan pada catatan ini?',
         confirmText: 'Simpan',
         onConfirm: async () => {
+          const uploadedImages: { url: string; path: string }[] = [];
           try {
             setIsUploading(true);
-            const uploadedImages = [];
             for (const file of tempFiles) {
-              const res = await uploadNoteImage(file, compressionTarget);
+              const res = await uploadNoteImage(file);
               uploadedImages.push(res);
             }
             const finalImages = [...formData.existingImages, ...uploadedImages];
-            await updateNote(editingNote.id, {
+            const noteUpdates: Partial<FamilyNote> = {
               title: formData.title,
               content: formData.content,
               color: formData.color,
@@ -97,10 +154,18 @@ export const useNotesLogic = () => {
               imagePath: finalImages.length > 0 ? finalImages[0].path : null,
               imageUrls: finalImages.map(i => i.url),
               imagePaths: finalImages.map(i => i.path)
-            });
+            };
+            await updateNote(editingNote.id, noteUpdates);
+            const retainedPaths = new Set(finalImages.map(image => image.path));
+            const removedPaths = (editingNote.imagePaths || (editingNote.imagePath ? [editingNote.imagePath] : []))
+              .filter(path => !retainedPaths.has(path));
+            await deleteNoteImages(removedPaths);
+            clearError();
             closeForm();
           } catch (err) {
             console.error(err);
+            reportError('Gagal menyimpan perubahan. Periksa koneksi lalu coba lagi.');
+            await deleteNoteImages(uploadedImages.map(image => image.path));
           } finally {
             setIsUploading(false);
             close();
@@ -108,17 +173,21 @@ export const useNotesLogic = () => {
         }
       });
     } else {
+      const uploadedImages: { url: string; path: string }[] = [];
       try {
         setIsUploading(true);
-        const uploadedImages = [];
         for (const file of tempFiles) {
-          const res = await uploadNoteImage(file, compressionTarget);
+          const res = await uploadNoteImage(file);
           uploadedImages.push(res);
         }
         await addNote(formData.title, formData.content, formData.color, uploadedImages);
+        clearError();
         closeForm();
       } catch (err) {
         console.error(err);
+        reportError('Gagal menyimpan catatan. Periksa koneksi lalu coba lagi.');
+        // Bersihkan upload yang belum terhubung ke dokumen agar tidak meninggalkan file yatim.
+        await deleteNoteImages(uploadedImages.map(image => image.path));
       } finally {
         setIsUploading(false);
       }
@@ -187,6 +256,8 @@ export const useNotesLogic = () => {
     });
     setPreviewUrls([]);
     setTempFiles([]);
+    setOriginalFiles([]);
+    clearError();
     setIsAdding(true);
   };
 
@@ -196,13 +267,16 @@ export const useNotesLogic = () => {
       setIsCompressing(true);
       try {
         const newTempFiles = [...tempFiles];
+        const newOriginalFiles = [...originalFiles];
         const newPreviewUrls = [...previewUrls];
         for (const file of files) {
           const processed = await compress(file, compressionTarget);
           newTempFiles.push(processed);
+          newOriginalFiles.push(file);
           newPreviewUrls.push(URL.createObjectURL(processed));
         }
         setTempFiles(newTempFiles);
+        setOriginalFiles(newOriginalFiles);
         setPreviewUrls(newPreviewUrls);
       } catch (err) {
         console.error("Compression failed", err);
@@ -215,18 +289,19 @@ export const useNotesLogic = () => {
 
   const handleTargetChange = async (newTarget: number) => {
     setCompressionTarget(newTarget);
-    if (tempFiles.length > 0) {
+    if (originalFiles.length > 0) {
       setIsCompressing(true);
       try {
         const newTempFiles = [];
         const newPreviewUrls = [];
-        for (const file of tempFiles) {
+        for (const file of originalFiles) {
           const processed = await compress(file, newTarget);
           newTempFiles.push(processed);
           newPreviewUrls.push(URL.createObjectURL(processed));
         }
         previewUrls.forEach(url => URL.revokeObjectURL(url));
         setTempFiles(newTempFiles);
+        setOriginalFiles([...originalFiles]);
         setPreviewUrls(newPreviewUrls);
       } catch (err) {
         console.error(err);
@@ -260,6 +335,8 @@ export const useNotesLogic = () => {
   return {
     notes,
     loading,
+    error,
+    clearError,
     searchQuery,
     setSearchQuery,
     isAdding,
@@ -276,6 +353,8 @@ export const useNotesLogic = () => {
     setFormData,
     tempFiles,
     setTempFiles,
+    originalFiles,
+    setOriginalFiles,
     previewUrls,
     setPreviewUrls,
     fullScreenUrl,

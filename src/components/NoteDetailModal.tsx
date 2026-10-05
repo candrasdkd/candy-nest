@@ -1,9 +1,9 @@
- import { useState } from 'react';
+import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   X, Pin, Archive, Edit3, Trash2, MessageCircle, 
   Inbox, Globe, ExternalLink, Check, Download,
-  ScanLine, Calendar, User, Loader2, Copy
+  ScanLine, Calendar, User, Loader2, Copy, ChevronUp, ChevronDown, Plus
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { id } from 'date-fns/locale';
@@ -93,6 +93,24 @@ export default function NoteDetailModal({
     }
   };
 
+  const addChecklistItem = async () => {
+    if (!note) return;
+    const base = note.content.trimEnd();
+    await onUpdate(note.id, { content: `${base}${base ? '\n' : ''}> ` });
+  };
+
+  const moveChecklistItem = async (index: number, direction: -1 | 1) => {
+    if (!note) return;
+    const lines = note.content.split('\n');
+    const isChecklistLine = (line?: string) => Boolean(line?.trim().startsWith('>') && !line.trim().startsWith('>>'));
+    const checklistIndices = lines.map((line, lineIndex) => isChecklistLine(line) ? lineIndex : -1).filter(lineIndex => lineIndex >= 0);
+    const position = checklistIndices.indexOf(index);
+    const targetIndex = checklistIndices[position + direction];
+    if (position < 0 || targetIndex === undefined) return;
+    [lines[index], lines[targetIndex]] = [lines[targetIndex], lines[index]];
+    await onUpdate(note.id, { content: lines.join('\n') });
+  };
+
   const renderContent = () => {
     if (!note) return null;
     const lines = note.content.split('\n');
@@ -146,8 +164,8 @@ export default function NoteDetailModal({
 
     return (
       <div className="space-y-4">
-        {hasChecklists && (
-          <div className="flex items-center justify-between mb-4 bg-sage-50 p-3 rounded-[1.2rem] border border-sage-100">
+        <div className="flex flex-wrap items-center justify-between gap-3 mb-4 bg-sage-50 p-3 rounded-[1.2rem] border border-sage-100">
+          {hasChecklists ? (
             <div className="flex items-center gap-3 px-1">
               <div className="w-8 h-8 rounded-[0.8rem] bg-white flex items-center justify-center text-sage-600 shadow-sm">
                 <Check className="w-4 h-4" />
@@ -157,21 +175,12 @@ export default function NoteDetailModal({
                 <span className="text-sm font-black text-sage-900 leading-none mt-0.5 font-mono">{checkedCount} <span className="text-sage-400 font-medium">/ {totalChecklists}</span></span>
               </div>
             </div>
-            
-            <button
-              type="button"
-              onClick={uncheckAll}
-              disabled={!hasCheckedItems}
-              className={`text-[10px] font-bold uppercase tracking-widest px-4 py-2.5 rounded-[0.8rem] transition-all flex items-center gap-2 ${
-                hasCheckedItems 
-                  ? 'bg-white text-sage-700 hover:text-rose-500 hover:bg-rose-50 border border-sage-200 shadow-sm active:scale-95' 
-                  : 'bg-transparent text-sage-300 opacity-50 cursor-not-allowed'
-              }`}
-            >
-              Reset
-            </button>
+          ) : <span className="text-[10px] font-bold uppercase tracking-widest text-sage-400">Checklist</span>}
+          <div className="flex items-center gap-2">
+            {hasChecklists && <button type="button" onClick={uncheckAll} disabled={!hasCheckedItems} className={`text-[10px] font-bold uppercase tracking-widest px-4 py-2.5 rounded-[0.8rem] transition-all ${hasCheckedItems ? 'bg-white text-sage-700 hover:text-rose-500 hover:bg-rose-50 border border-sage-200 shadow-sm active:scale-95' : 'bg-transparent text-sage-300 opacity-50 cursor-not-allowed'}`}>Reset</button>}
+            <button type="button" onClick={addChecklistItem} className="inline-flex items-center gap-1.5 rounded-[0.8rem] border border-sage-200 bg-white px-3 py-2.5 text-[10px] font-bold uppercase tracking-widest text-sage-700 hover:bg-sage-100"><Plus className="h-3.5 w-3.5" /> Tambah item</button>
           </div>
-        )}
+        </div>
 
         {blocks.map((block, blockIdx) => {
           if (block.type === 'empty') {
@@ -205,26 +214,21 @@ export default function NoteDetailModal({
                   if (isCheckbox) {
                     const isChecked = trimmed.startsWith('>x');
                     const labelText = trimmed.replace(/^>x?\s?/, '').trim();
+                    const checklistIndices = lines.map((line, lineIndex) => line.trim().startsWith('>') && !line.trim().startsWith('>>') ? lineIndex : -1).filter(lineIndex => lineIndex >= 0);
+                    const checklistPosition = checklistIndices.indexOf(originalIndex);
                     return (
-                      <button
-                        key={originalIndex}
-                        type="button"
-                        onClick={() => toggleCheckbox(originalIndex)}
-                        className={`w-full text-left flex items-start gap-4 p-4 rounded-2xl transition-all duration-200 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-sage-400 ${
-                          isChecked 
-                            ? 'bg-sage-50/40 opacity-60' 
-                            : 'bg-sage-50/50 hover:bg-sage-50 hover:border-sage-200 border border-sage-100/50 active:scale-[0.99]'
-                        }`}
-                      >
-                        <div className={`mt-0.5 w-6 h-6 shrink-0 rounded-lg border-2 flex items-center justify-center transition-all ${
-                          isChecked ? 'bg-sage-900 border-sage-900 text-white' : 'bg-white border-sage-200'
-                        }`}>
-                          {isChecked && <Check className="w-4 h-4" strokeWidth={3} />}
+                      <div key={originalIndex} className={`flex items-stretch gap-2 p-2 rounded-2xl transition-all ${isChecked ? 'bg-sage-50/40 opacity-70' : 'bg-sage-50/50 hover:bg-sage-50 border border-sage-100/50'}`}>
+                        <button type="button" onClick={() => toggleCheckbox(originalIndex)} aria-label={`${isChecked ? 'Batalkan' : 'Centang'} ${labelText}`} className="flex min-w-0 flex-1 items-start gap-4 p-2 text-left outline-none focus-visible:ring-2 focus-visible:ring-sage-400 rounded-xl">
+                          <div className={`mt-0.5 w-6 h-6 shrink-0 rounded-lg border-2 flex items-center justify-center transition-all ${isChecked ? 'bg-sage-900 border-sage-900 text-white' : 'bg-white border-sage-200'}`}>
+                            {isChecked && <Check className="w-4 h-4" strokeWidth={3} />}
+                          </div>
+                          <span className={`text-base leading-tight transition-all ${isChecked ? 'text-sage-400 line-through' : 'text-sage-800 font-medium'}`}>{labelText}</span>
+                        </button>
+                        <div className="flex shrink-0 flex-col justify-center gap-1">
+                          <button type="button" onClick={() => moveChecklistItem(originalIndex, -1)} disabled={checklistPosition <= 0} aria-label={`Pindahkan ${labelText} ke atas`} className="rounded-lg p-1.5 text-sage-500 hover:bg-white disabled:opacity-25"><ChevronUp className="h-4 w-4" /></button>
+                          <button type="button" onClick={() => moveChecklistItem(originalIndex, 1)} disabled={checklistPosition === checklistIndices.length - 1} aria-label={`Pindahkan ${labelText} ke bawah`} className="rounded-lg p-1.5 text-sage-500 hover:bg-white disabled:opacity-25"><ChevronDown className="h-4 w-4" /></button>
                         </div>
-                        <span className={`text-base leading-tight transition-all ${isChecked ? 'text-sage-400 line-through' : 'text-sage-800 font-medium'}`}>
-                          {labelText}
-                        </span>
-                      </button>
+                      </div>
                     );
                   }
 

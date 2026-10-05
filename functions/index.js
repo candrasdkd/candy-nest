@@ -857,16 +857,17 @@ async function handlePeriodRekap(chatId, messageId, period) {
     title = "Rekap Bulan Ini";
   }
 
+  // Query only by coupleId to avoid requiring a composite Firestore index
+  // for the date range; filter the small family transaction set in memory.
   const txSnap = await db.collection("transactions")
       .where("coupleId", "==", userData.coupleId)
-      .where("date", ">=", startDate)
-      .where("date", "<=", today)
       .get();
 
   let expenses = 0;
   const categories = new Map();
   txSnap.forEach((doc) => {
     const tx = doc.data();
+    if (typeof tx.date !== "string" || tx.date < startDate || tx.date > today) return;
     const amount = Number(tx.amount) || 0;
     if (tx.type === "expense") {
       expenses += amount;

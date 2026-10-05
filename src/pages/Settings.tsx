@@ -10,7 +10,8 @@ import {
   Camera,
   HeartHandshake,
   Mail,
-  Link2
+  Link2,
+  Send
 } from 'lucide-react';
 import { motion, Variants } from 'framer-motion';
 
@@ -264,6 +265,30 @@ export default function Settings() {
                 <ChevronRight className="w-4 h-4 text-sage-300 group-hover:translate-x-1 transition-transform" />
               </div>
             ))}
+
+            <a
+              href={`https://t.me/CandyNest_bot?start=${userProfile?.inviteCode || ""}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="w-full flex items-center justify-between p-5 hover:bg-sky-50 transition-colors group text-left"
+            >
+              <div className="flex items-center gap-4">
+                <div className="w-10 h-10 bg-sky-50 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform">
+                  <Send className="w-5 h-5 text-sky-500" />
+                </div>
+                <div>
+                  <div className="text-sm font-bold text-sky-900 flex items-center gap-2">
+                    Telegram Bot
+                    <span className="text-[8px] font-black bg-sky-500 text-white px-2 py-0.5 rounded-full uppercase tracking-widest">Baru</span>
+                  </div>
+                  <div className="text-[10px] text-sky-600 font-medium tracking-wide">Catat pengeluaran & tf Jago via chat Telegram</div>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-[11px] font-bold text-sky-600 hidden sm:inline">Hubungkan</span>
+                <ChevronRight className="w-4 h-4 text-sky-300 group-hover:translate-x-1 transition-transform" />
+              </div>
+            </a>
 
             {canInstall && (
               <button

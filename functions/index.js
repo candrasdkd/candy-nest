@@ -847,7 +847,6 @@ async function handlePeriodRekap(chatId, messageId, period) {
   const todayDate = new Date(`${today}T00:00:00.000Z`);
   let startDate;
   let title;
-
   if (period === "week") {
     const daysSinceMonday = (todayDate.getUTCDay() + 6) % 7;
     todayDate.setUTCDate(todayDate.getUTCDate() - daysSinceMonday);
@@ -882,66 +881,13 @@ async function handlePeriodRekap(chatId, messageId, period) {
       .map(([category, amount]) => `• ${escapeHtml(category)}: ${formatRupiah(amount)}`)
       .join("\n");
 
-  let budgetLine = "";
-  if (period === "month") {
-    const budgetSnap = await db.collection("monthlyBudgets").doc(userData.coupleId).get();
-    if (budgetSnap.exists) {
-      const monthlyBudget = Number(budgetSnap.data().amount) || 0;
-      const remaining = monthlyBudget - expenses;
-      const remainingLabel = remaining >= 0 ? "Sisa anggaran" : "Melebihi anggaran";
-      budgetLine = `\n📌 <b>${remainingLabel}:</b> ${formatRupiah(Math.abs(remaining))}`;
-    } else {
-      budgetLine = "\n📌 Anggaran belum diatur. Kirim <code>/setbudget 5000000</code> untuk menetapkan batas bulanan bersama.";
-    }
-  }
-
   const rangeLabel = period === "week" ? `${startDate} s.d. ${today}` : today.slice(0, 7);
   const message =
       `📊 <b>${title}</b>\n📅 <code>${rangeLabel}</code>\n\n` +
       `💸 <b>Total Pengeluaran:</b> ${formatRupiah(expenses)}` +
-      budgetLine +
       (categoryLines ? `\n\n<b>Pengeluaran terbesar:</b>\n${categoryLines}` : "\n\nBelum ada pengeluaran pada periode ini.");
 
   await sendTelegram(chatId, message, messageId);
-}
-
-/**
- * Set the shared monthly spending limit for a couple.
- * @param {number|string} chatId
- * @param {string} text
- * @param {number} messageId
- */
-async function handleSetBudget(chatId, text, messageId) {
-  const userSnap = await db.collection("users")
-      .where("telegramChatId", "==", chatId)
-      .limit(1)
-      .get();
-  if (userSnap.empty) {
-    await sendTelegram(chatId, "⚠️ Hubungkan akunmu dulu dengan <code>/connect KODE_UNDANGAN</code>.", messageId);
-    return;
-  }
-
-  const userDoc = userSnap.docs[0];
-  const userData = userDoc.data();
-  if (!userData.coupleId) {
-    await sendTelegram(chatId, "⚠️ Akunmu belum terhubung ke pasangan di CandyNest.", messageId);
-    return;
-  }
-
-  const parsed = parseExpenseText(text.replace(/^\/setbudget(?:@\w+)?\s*/i, ""));
-  if (!parsed || parsed.amount > 100000000) {
-    await sendTelegram(chatId, "Formatnya: <code>/setbudget 5000000</code> (maksimum Rp100.000.000 per bulan).", messageId);
-    return;
-  }
-
-  await db.collection("monthlyBudgets").doc(userData.coupleId).set({
-    coupleId: userData.coupleId,
-    amount: parsed.amount,
-    updatedAt: new Date().toISOString(),
-    updatedBy: userDoc.id,
-  }, {merge: true});
-
-  await sendTelegram(chatId, `✅ Anggaran bulanan bersama diatur ke <b>${formatRupiah(parsed.amount)}</b>. Ubah kapan saja dengan <code>/setbudget NOMINAL</code>.`, messageId);
 }
 
 /**
@@ -1020,9 +966,8 @@ async function handleHelp(chatId, messageId) {
       "Untuk frasa seperti <code>minggu lalu</code> atau <code>bulan lalu</code>, tulis tanggal pastinya agar tidak salah dicatat.\n\n" +
       "<b>Perintah Tersedia:</b>\n" +
       "• /rekap - Lihat pengeluaran hari ini\n" +
-      "• /rekapminggu - Rekap dari Senin sampai hari ini\n" +
-      "• /rekapbulan atau /sisa - Rekap bulanan dan sisa anggaran\n" +
-      "• /setbudget NOMINAL - Atur anggaran bulanan bersama\n" +
+      "• /rekapmingguan - Rekap dari Senin sampai hari ini\n" +
+      "• /rekapbulanan - Rekap pengeluaran bulan ini\n" +
       "• /undo - Batalkan pengeluaran bot terakhir (maks. 24 jam)\n" +
       "• /connect KODE - Hubungkan akun CandyNest\n" +
       "• /disconnect - Putuskan koneksi akun\n" +
@@ -1373,20 +1318,14 @@ exports.telegramWebhook = functions.https.onRequest(async (req, res) => {
       return;
     }
 
-    if (["/rekapminggu", "/minggu"].includes(command)) {
+    if (["/rekapmingguan", "/rekapminggu"].includes(command)) {
       await handlePeriodRekap(chatId, message.message_id, "week");
       res.status(200).send("OK");
       return;
     }
 
-    if (["/rekapbulan", "/bulan", "/sisa"].includes(command)) {
+    if (command === "/rekapbulanan") {
       await handlePeriodRekap(chatId, message.message_id, "month");
-      res.status(200).send("OK");
-      return;
-    }
-
-    if (command === "/setbudget") {
-      await handleSetBudget(chatId, text, message.message_id);
       res.status(200).send("OK");
       return;
     }

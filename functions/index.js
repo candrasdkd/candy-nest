@@ -368,8 +368,142 @@ function getScopeInlineKeyboard(txId, activeTarget) {
           callback_data: `scope:partner:${txId}`,
         },
       ],
+      [
+        {text: "✏️ Kategori", callback_data: `editcat:open:${txId}`},
+        {text: "📝 Catatan", callback_data: `editnote:${txId}`},
+      ],
+      [
+        {text: "↩ Batalkan transaksi", callback_data: `undo:ask:${txId}`},
+      ],
     ],
   };
+}
+
+const TELEGRAM_COMMANDS = [
+  {command: "rekap", description: "Pengeluaran hari ini"},
+  {command: "rekapmingguan", description: "Rekap pengeluaran minggu ini"},
+  {command: "rekapbulanan", description: "Rekap pengeluaran bulan ini"},
+  {command: "undo", description: "Batalkan pengeluaran terakhir"},
+  {command: "connect", description: "Hubungkan akun CandyNest"},
+  {command: "disconnect", description: "Putuskan koneksi akun"},
+  {command: "help", description: "Bantuan format dan perintah"},
+];
+
+/** Register the command menu shown in Telegram chats with this bot. */
+async function setTelegramCommands(token = TELEGRAM_BOT_TOKEN) {
+  const response = await axios.post(
+      `https://api.telegram.org/bot${token}/setMyCommands`,
+      {commands: TELEGRAM_COMMANDS},
+  );
+  if (!response.data?.ok) throw new Error("Telegram menolak pengaturan daftar command.");
+}
+
+/** Create category selection buttons for correcting a bot expense. */
+function getExpenseCategoryKeyboard(txId) {
+  const categories = [
+    ...EXPENSE_CATEGORIES_CONFIG,
+    {category: "lainnya_pengeluaran", label: "Lainnya", emoji: "💸"},
+  ];
+  const rows = [];
+  for (let index = 0; index < categories.length; index += 2) {
+    rows.push(categories.slice(index, index + 2).map((category) => ({
+      text: `${category.emoji} ${category.label}`,
+      callback_data: `editcat:set:${txId}:${category.category}`,
+    })));
+  }
+  rows.push([{text: "Batal", callback_data: `editcat:cancel:${txId}`}]);
+  return {inline_keyboard: rows};
+}
+
+/** Return a bot-created expense only when it belongs to the linked Telegram user. */
+async function getOwnedTelegramExpense(chatId, txId) {
+  if (!txId) return null;
+  const linkedUserSnap = await db.collection("users")
+      .where("telegramChatId", "==", chatId)
+      .limit(1)
+      .get();
+  if (linkedUserSnap.empty) return null;
+
+  const linkedUser = linkedUserSnap.docs[0];
+  const txRef = db.collection("transactions").doc(txId);
+  const txSnap = await txRef.get();
+  if (!txSnap.exists) return null;
+
+  const tx = txSnap.data();
+  if (tx.userId !== linkedUser.id ||
+      tx.coupleId !== linkedUser.data().coupleId ||
+      tx.source !== "telegram_bot" || tx.type !== "expense") return null;
+  return {txRef, tx, linkedUser};
+}
+
+/** Get the allocation button state and label for an existing expense. */
+function getExpenseScopeState(tx, userId) {
+  if (tx.expenseScope === "shared") return {activeTarget: "shared", scopeLabel: "👥 Bersama"};
+  if (tx.expenseForUserId && tx.expenseForUserId !== userId) {
+    return {activeTarget: "partner", scopeLabel: "💑 Pasangan"};
+  }
+  return {activeTarget: "self", scopeLabel: "👤 Saya"};
+}
+
+/** Apply a Telegram reply to an active note-correction prompt. */
+async function handlePendingNoteEdit(chatId, message, text) {
+  const sessionRef = db.collection("telegramEditSessions").doc(String(chatId));
+  const sessionSnap = await sessionRef.get();
+  if (!sessionSnap.exists) return false;
+
+  const session = sessionSnap.data();
+  if (message.reply_to_message?.message_id !== session.promptMessageId) return false;
+
+  if (!Number.isFinite(session.expiresAt) || Date.now() > session.expiresAt) {
+    await sessionRef.delete();
+    await sendTelegram(chatId, "Waktu untuk mengubah catatan sudah habis. Tekan <b>📝 Catatan</b> lagi untuk mencoba.", message.message_id);
+    return true;
+  }
+
+  if (text.trim().toLowerCase() === "/cancel") {
+    await sessionRef.delete();
+    await sendTelegram(chatId, "Koreksi catatan dibatalkan.", message.message_id);
+    return true;
+  }
+
+  const description = text.trim();
+  if (!description || description.length > 200) {
+    await sendTelegram(chatId, "Catatan harus berisi 1–200 karakter. Balas prompt tadi lagi, atau ketik <code>/cancel</code>.", message.message_id);
+    return true;
+  }
+
+  const owned = await getOwnedTelegramExpense(chatId, session.txId);
+  if (!owned || owned.tx.userId !== session.userId) {
+    await sessionRef.delete();
+    await sendTelegram(chatId, "Transaksi sudah tidak tersedia untuk dikoreksi.", message.message_id);
+    return true;
+  }
+
+  await owned.txRef.update({
+    description,
+    updatedAt: new Date().toISOString(),
+  });
+  await sessionRef.delete();
+
+  const updatedTx = {...owned.tx, description};
+  await editTelegramMessage(
+      chatId,
+      session.transactionMessageId,
+      getExpenseReceiptText(updatedTx, session.scopeLabel),
+      getScopeInlineKeyboard(session.txId, session.activeTarget),
+  );
+  await sendTelegram(chatId, "✅ Catatan transaksi sudah diperbarui.", message.message_id);
+  return true;
+}
+
+/** Format the compact confirmation shown for a bot-recorded expense. */
+function getExpenseReceiptText(tx, scopeLabel, displayDate = tx.date, extraLine = "") {
+  const note = String(tx.description || "").trim();
+  const shortNote = note.length > 80 ? `${note.slice(0, 77)}…` : note;
+  return `✅ <b>${formatRupiah(Number(tx.amount) || 0)}</b> · ${getCategoryEmoji(tx.category)} ${escapeHtml(getCategoryLabel(tx.category))}\n` +
+      `${shortNote ? `${escapeHtml(shortNote)}\n` : ""}` +
+      `📅 ${escapeHtml(displayDate)} · ${escapeHtml(scopeLabel)}${extraLine}\n\n` +
+      "<i>Koreksi kategori/catatan atau alokasi:</i>";
 }
 
 
@@ -764,32 +898,28 @@ async function handleRekap(chatId, messageId) {
   }
 
   let total = 0;
-  let items = "";
-  let idx = 1;
-
+  const transactions = [];
   txSnap.forEach((doc) => {
     const data = doc.data();
     const amt = Number(data.amount) || 0;
     total += amt;
-    const formatted = new Intl.NumberFormat("id-ID", {
-      style: "currency",
-      currency: "IDR",
-      minimumFractionDigits: 0,
-    }).format(amt);
-    items += `${idx++}. <b>${escapeHtml(data.description || data.category)}</b>: ${formatted} (<i>${escapeHtml(data.addedBy || "User")}</i>)\n`;
+    transactions.push(data);
   });
 
-  const totalFormatted = new Intl.NumberFormat("id-ID", {
-    style: "currency",
-    currency: "IDR",
-    minimumFractionDigits: 0,
-  }).format(total);
+  const visibleTransactions = transactions.slice(0, 8);
+  const items = visibleTransactions.map((data) => {
+    const note = String(data.description || "").trim();
+    const shortNote = note.length > 55 ? `${note.slice(0, 52)}…` : note;
+    const detail = shortNote ? ` — ${escapeHtml(shortNote)}` : "";
+    return `• ${formatRupiah(Number(data.amount) || 0)} · ${escapeHtml(getCategoryLabel(data.category))}${detail}`;
+  }).join("\n");
+  const remainingCount = transactions.length - visibleTransactions.length;
 
   await sendTelegram(
       chatId,
-      `📊 <b>Rekap Pengeluaran Hari Ini</b>\n📅 <code>${today}</code>\n\n` +
-      `${items}\n` +
-      `💰 <b>Total Pengeluaran:</b> <b>${totalFormatted}</b>`,
+      `📊 <b>Pengeluaran hari ini</b> · <code>${today}</code>\n\n` +
+      `${items}${remainingCount > 0 ? `\n<i>+${remainingCount} transaksi lainnya</i>` : ""}\n\n` +
+      `<b>${formatRupiah(total)}</b> · ${transactions.length} transaksi`,
       messageId,
   );
 }
@@ -864,6 +994,7 @@ async function handlePeriodRekap(chatId, messageId, period) {
       .get();
 
   let expenses = 0;
+  let expenseCount = 0;
   const categories = new Map();
   txSnap.forEach((doc) => {
     const tx = doc.data();
@@ -871,6 +1002,7 @@ async function handlePeriodRekap(chatId, messageId, period) {
     const amount = Number(tx.amount) || 0;
     if (tx.type === "expense") {
       expenses += amount;
+      expenseCount += 1;
       const category = getCategoryLabel(tx.category);
       categories.set(category, (categories.get(category) || 0) + amount);
     }
@@ -884,9 +1016,9 @@ async function handlePeriodRekap(chatId, messageId, period) {
 
   const rangeLabel = period === "week" ? `${startDate} s.d. ${today}` : today.slice(0, 7);
   const message =
-      `📊 <b>${title}</b>\n📅 <code>${rangeLabel}</code>\n\n` +
-      `💸 <b>Total Pengeluaran:</b> ${formatRupiah(expenses)}` +
-      (categoryLines ? `\n\n<b>Pengeluaran terbesar:</b>\n${categoryLines}` : "\n\nBelum ada pengeluaran pada periode ini.");
+      `📊 <b>${title}</b>\n<code>${rangeLabel}</code>\n\n` +
+      `<b>${formatRupiah(expenses)}</b> · ${expenseCount} transaksi` +
+      (categoryLines ? `\n\n<b>Top kategori</b>\n${categoryLines}` : "\n\nBelum ada pengeluaran pada periode ini.");
 
   await sendTelegram(chatId, message, messageId);
 }
@@ -965,6 +1097,7 @@ async function handleHelp(chatId, messageId) {
       "• <code>obat 30k apotek k24</code>\n\n" +
       "<b>Catat tanggal yang terlewat:</b> tambahkan <code>kemarin</code>, <code>2 hari lalu</code>, <code>1 minggu lalu</code>, atau tanggal <code>3/10/2026</code> / <code>3 Okt 2026</code> pada pesan.\n" +
       "Untuk frasa seperti <code>minggu lalu</code> atau <code>bulan lalu</code>, tulis tanggal pastinya agar tidak salah dicatat.\n\n" +
+      "Setelah dicatat, tombol transaksi bisa dipakai untuk mengoreksi kategori/catatan, mengubah alokasi, atau membatalkan transaksi.\n\n" +
       "<b>Perintah Tersedia:</b>\n" +
       "• /rekap - Lihat pengeluaran hari ini\n" +
       "• /rekapmingguan - Rekap dari Senin sampai hari ini\n" +
@@ -1091,29 +1224,15 @@ async function handleExpenseRecord(chatId, text, messageId) {
 
   const docRef = await db.collection("transactions").add(txData);
 
-  const formattedAmount = new Intl.NumberFormat("id-ID", {
-    style: "currency",
-    currency: "IDR",
-    minimumFractionDigits: 0,
-  }).format(parsed.amount);
-
-  const backdatedNote = parsed.isBackdated ?
-      `\n⏮️ <i>Dicatat mundur untuk: <b>${txDateDisplay}</b></i>` :
-      "";
-
-  const replyText =
-      "🍬 <b>Pengeluaran Berhasil Dicatat!</b>\n\n" +
-      `💸 <b>Nominal:</b> ${formattedAmount}\n` +
-      `${parsed.categoryEmoji} <b>Kategori:</b> ${parsed.categoryLabel}\n` +
-      `📝 <b>Catatan:</b> ${escapeHtml(parsed.note)}\n` +
-      `🎯 <b>Untuk:</b> <b>${scopeLabel}</b>\n` +
-      `📅 <b>Tanggal:</b> ${txDateDisplay}` +
-      backdatedNote + "\n" +
-      `👤 <b>Pencatat:</b> ${escapeHtml(displayName)}\n\n` +
-      "<i>Ketuk tombol di bawah jika ingin mengubah kepemilikan:</i>";
+  const receiptText = getExpenseReceiptText(
+      txData,
+      scopeLabel,
+      txDateDisplay,
+      parsed.isBackdated ? "\n⏮️ Dicatat mundur" : "",
+  );
 
   const buttons = getScopeInlineKeyboard(docRef.id, parsed.target);
-  await sendTelegram(chatId, replyText, messageId, buttons);
+  await sendTelegram(chatId, receiptText, messageId, buttons);
 }
 
 /**
@@ -1141,10 +1260,33 @@ async function handleCallbackQuery(callbackQuery) {
         const ownedBySender = tx.userId === linkedUser.id &&
             tx.coupleId === linkedUser.data().coupleId &&
             tx.source === "telegram_bot" && tx.type === "expense";
-        if (ownedBySender && action === "confirm") {
+        const createdAt = new Date(tx.createdAt || 0).getTime();
+        const canUndo = Number.isFinite(createdAt) && Date.now() - createdAt <= 24 * 60 * 60 * 1000;
+        if (ownedBySender && action === "ask") {
+          if (!canUndo) {
+            await answerCallback(queryId, "Sudah lewat 24 jam, transaksi ini tidak bisa dibatalkan.");
+            return;
+          }
+          await answerCallback(queryId, "Konfirmasi pembatalan di pesan baru.");
+          await sendTelegram(
+              chatId,
+              `Batalkan ${formatRupiah(Number(tx.amount) || 0)} · ${escapeHtml(tx.description || getCategoryLabel(tx.category))}?`,
+              messageId,
+              {inline_keyboard: [[
+                {text: "🗑 Ya, batalkan", callback_data: `undo:confirm:${txId}`},
+                {text: "Jangan", callback_data: `undo:cancel:${txId}`},
+              ]]},
+          );
+          return;
+        }
+        if (ownedBySender && action === "confirm" && canUndo) {
           await txRef.delete();
           await answerCallback(queryId, "Transaksi dibatalkan.");
           await editTelegramMessage(chatId, messageId, "🗑 <b>Transaksi dibatalkan.</b>");
+          return;
+        }
+        if (ownedBySender && action === "confirm" && !canUndo) {
+          await answerCallback(queryId, "Sudah lewat 24 jam, transaksi ini tidak bisa dibatalkan.");
           return;
         }
         if (ownedBySender && action === "cancel") {
@@ -1155,6 +1297,79 @@ async function handleCallbackQuery(callbackQuery) {
       }
     }
     await answerCallback(queryId, "Transaksi tidak ditemukan atau bukan milik akunmu.");
+    return;
+  }
+
+  if (data.startsWith("editcat:")) {
+    const [, action, txId, category] = data.split(":");
+    const owned = await getOwnedTelegramExpense(chatId, txId);
+    if (!owned) {
+      await answerCallback(queryId, "Transaksi tidak ditemukan atau bukan milik akunmu.");
+      return;
+    }
+    const {txRef, tx, linkedUser} = owned;
+    const {activeTarget, scopeLabel} = getExpenseScopeState(tx, linkedUser.id);
+
+    if (action === "open") {
+      await answerCallback(queryId, "Pilih kategori baru.");
+      await editTelegramMessage(
+          chatId,
+          messageId,
+          `Pilih kategori untuk <b>${formatRupiah(Number(tx.amount) || 0)}</b> · ${escapeHtml(tx.description || getCategoryLabel(tx.category))}:`,
+          getExpenseCategoryKeyboard(txId),
+      );
+      return;
+    }
+    if (action === "cancel") {
+      await answerCallback(queryId, "Koreksi dibatalkan.");
+      await editTelegramMessage(chatId, messageId, getExpenseReceiptText(tx, scopeLabel), getScopeInlineKeyboard(txId, activeTarget));
+      return;
+    }
+    if (action === "set") {
+      const selected = EXPENSE_CATEGORIES_CONFIG.find((item) => item.category === category) ||
+          (category === "lainnya_pengeluaran" ? {category, label: "Lainnya"} : null);
+      if (!selected) {
+        await answerCallback(queryId, "Kategori tidak valid.");
+        return;
+      }
+      await txRef.update({category: selected.category, updatedAt: new Date().toISOString()});
+      const updatedTx = {...tx, category: selected.category};
+      await answerCallback(queryId, `Kategori diubah ke ${selected.label}.`);
+      await editTelegramMessage(chatId, messageId, getExpenseReceiptText(updatedTx, scopeLabel), getScopeInlineKeyboard(txId, activeTarget));
+      return;
+    }
+  }
+
+  if (data.startsWith("editnote:")) {
+    const txId = data.slice("editnote:".length);
+    const owned = await getOwnedTelegramExpense(chatId, txId);
+    if (!owned) {
+      await answerCallback(queryId, "Transaksi tidak ditemukan atau bukan milik akunmu.");
+      return;
+    }
+    const {tx, linkedUser} = owned;
+    const {activeTarget, scopeLabel} = getExpenseScopeState(tx, linkedUser.id);
+    const prompt = await sendTelegram(
+        chatId,
+        "Balas pesan ini dengan <b>catatan baru</b> (maks. 200 karakter). Ketik <code>/cancel</code> untuk batal.",
+        messageId,
+        {force_reply: true, selective: true, input_field_placeholder: "Tulis catatan baru"},
+    );
+    const promptMessageId = prompt?.result?.message_id;
+    if (!promptMessageId) {
+      await answerCallback(queryId, "Gagal membuka koreksi catatan. Coba lagi.");
+      return;
+    }
+    await db.collection("telegramEditSessions").doc(String(chatId)).set({
+      txId,
+      userId: linkedUser.id,
+      promptMessageId,
+      transactionMessageId: messageId,
+      activeTarget,
+      scopeLabel,
+      expiresAt: Date.now() + 10 * 60 * 1000,
+    });
+    await answerCallback(queryId, "Balas pesan bot untuk menyimpan catatan baru.");
     return;
   }
 
@@ -1214,24 +1429,16 @@ async function handleCallbackQuery(callbackQuery) {
   await txRef.update(updates);
   await answerCallback(queryId, `Diubah ke: ${scopeLabel}`);
 
-  const formattedAmount = new Intl.NumberFormat("id-ID", {
-    style: "currency",
-    currency: "IDR",
-    minimumFractionDigits: 0,
-  }).format(txData.amount);
-
   const categoryEmoji = getCategoryEmoji(txData.category);
   const categoryLabel = getCategoryLabel(txData.category);
 
+  const note = String(txData.description || "").trim();
+  const shortNote = note.length > 80 ? `${note.slice(0, 77)}…` : note;
   const updatedText =
-      "🍬 <b>Pengeluaran Berhasil Dicatat!</b>\n\n" +
-      `💸 <b>Nominal:</b> ${formattedAmount}\n` +
-      `${categoryEmoji} <b>Kategori:</b> ${categoryLabel}\n` +
-      `📝 <b>Catatan:</b> ${escapeHtml(txData.description)}\n` +
-      `🎯 <b>Untuk:</b> <b>${scopeLabel}</b>\n` +
-      `📅 <b>Tanggal:</b> ${txData.date}\n` +
-      `👤 <b>Pencatat:</b> ${escapeHtml(txData.addedBy || "Saya")}\n\n` +
-      "<i>Ketuk tombol di bawah jika ingin mengubah kepemilikan:</i>";
+      `✅ <b>${formatRupiah(Number(txData.amount) || 0)}</b> · ${categoryEmoji} ${escapeHtml(categoryLabel)}\n` +
+      `${shortNote ? `${escapeHtml(shortNote)}\n` : ""}` +
+      `📅 ${escapeHtml(txData.date)} · ${escapeHtml(scopeLabel)}\n\n` +
+      "<i>Ubah alokasi atau batalkan:</i>";
 
   const buttons = getScopeInlineKeyboard(txId, newTarget);
   await editTelegramMessage(chatId, messageId, updatedText, buttons);
@@ -1277,6 +1484,11 @@ exports.telegramWebhook = functions.https.onRequest(async (req, res) => {
   }
 
   try {
+    if (await handlePendingNoteEdit(chatId, message, text)) {
+      res.status(200).send("OK");
+      return;
+    }
+
     const command = text.split(/\s+/)[0].split("@")[0].toLowerCase();
     if (command === "/start") {
       const parts = text.split(/\s+/);
@@ -1364,6 +1576,7 @@ exports.setTelegramWebhook = functions.https.onRequest(async (req, res) => {
         `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/setWebhook`,
         {url: webhookUrl},
     );
+    await setTelegramCommands();
     res.status(200).json({
       success: true,
       webhookUrl: webhookUrl,
@@ -1418,6 +1631,7 @@ exports.configureTelegramWebhook = functions.https.onCall(async (data, context) 
     if (!setup.data?.ok) {
       throw new Error("Telegram menolak pemasangan webhook.");
     }
+    await setTelegramCommands(submittedToken);
 
     const status = await axios.get(
         `https://api.telegram.org/bot${submittedToken}/getWebhookInfo`,

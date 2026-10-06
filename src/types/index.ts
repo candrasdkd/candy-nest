@@ -89,6 +89,7 @@ export interface UserProfile {
   inviteCode: string;
   gender: 'male' | 'female' | null;
   fcmTokens?: string[];
+  telegramChatId?: number;
 }
 
 export interface CoupleData {

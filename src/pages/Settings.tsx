@@ -41,6 +41,12 @@ export default function Settings() {
     setEditGender,
     saving,
     updateError,
+    telegramToken,
+    setTelegramToken,
+    configuringTelegram,
+    telegramSetupError,
+    telegramSetupSuccess,
+    handleTelegramWebhookRestore,
     inviteCode,
     setInviteCode,
     linking,
@@ -289,6 +295,35 @@ export default function Settings() {
                 <ChevronRight className="w-4 h-4 text-sky-300 group-hover:translate-x-1 transition-transform" />
               </div>
             </a>
+
+            {userProfile?.telegramChatId && (
+              <form onSubmit={handleTelegramWebhookRestore} className="p-5 space-y-3 bg-sky-50/60">
+                <div>
+                  <div className="text-sm font-bold text-sky-900">Pulihkan koneksi Telegram</div>
+                  <p className="text-xs text-sky-700 mt-1">
+                    Tempel token bot yang sama dari BotFather untuk memasang ulang webhook. Token hanya dipakai saat ini dan tidak disimpan.
+                  </p>
+                </div>
+                <input
+                  type="password"
+                  value={telegramToken}
+                  onChange={e => setTelegramToken(e.target.value)}
+                  placeholder="Token CandyNest Bot"
+                  autoComplete="off"
+                  spellCheck={false}
+                  className="w-full px-4 py-3 bg-white border border-sky-100 rounded-xl text-sm font-mono focus:outline-none focus:ring-2 focus:ring-sky-200"
+                />
+                <button
+                  type="submit"
+                  disabled={configuringTelegram || !telegramToken.trim()}
+                  className="w-full py-3 bg-sky-700 text-white rounded-xl text-sm font-bold hover:bg-sky-800 disabled:opacity-50 transition-colors"
+                >
+                  {configuringTelegram ? 'Memulihkan...' : 'Pulihkan koneksi'}
+                </button>
+                {telegramSetupError && <p role="alert" className="text-xs font-semibold text-rose-600">{telegramSetupError}</p>}
+                {telegramSetupSuccess && <p role="status" className="text-xs font-semibold text-emerald-700">{telegramSetupSuccess}</p>}
+              </form>
+            )}
 
             {canInstall && (
               <button

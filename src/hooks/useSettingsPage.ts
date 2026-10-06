@@ -1,10 +1,12 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
+import { httpsCallable } from 'firebase/functions';
+import { functions } from '../firebase';
 import { useAuthStore } from '../store/useAuthStore';
 import { useConfirmStore } from '../store/useConfirmStore';
 import { usePWAStore } from '../store/usePWAStore';
 
 export function useSettingsPage() {
-  const { userProfile, logout, linkCouple, updateUserProfile } = useAuthStore();
+  const { currentUser, userProfile, logout, linkCouple, updateUserProfile } = useAuthStore();
   const { confirm, close, setLoading: setConfirmLoading } = useConfirmStore();
   const { deferredPrompt, setDeferredPrompt, isInstalled, setIsInstalled } = usePWAStore();
 
@@ -53,6 +55,35 @@ export function useSettingsPage() {
   const [editGender, setEditGender] = useState(userProfile?.gender || 'male');
   const [saving, setSaving] = useState(false);
   const [updateError, setUpdateError] = useState('');
+
+  // Telegram bot recovery: token stays in component memory and is cleared after each attempt.
+  const [telegramToken, setTelegramToken] = useState('');
+  const [configuringTelegram, setConfiguringTelegram] = useState(false);
+  const [telegramSetupError, setTelegramSetupError] = useState('');
+  const [telegramSetupSuccess, setTelegramSetupSuccess] = useState('');
+
+  const handleTelegramWebhookRestore = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!currentUser || !telegramToken.trim()) return;
+
+    setConfiguringTelegram(true);
+    setTelegramSetupError('');
+    setTelegramSetupSuccess('');
+    try {
+      const configureWebhook = httpsCallable<
+        { botToken: string },
+        { botUsername: string; webhookUrl: string }
+      >(functions, 'configureTelegramWebhook');
+      const result = await configureWebhook({ botToken: telegramToken.trim() });
+      const configured = result.data;
+      setTelegramSetupSuccess(`Webhook aktif untuk @${configured.botUsername}.`);
+    } catch (err: any) {
+      setTelegramSetupError(err.message || 'Gagal memulihkan koneksi Telegram.');
+    } finally {
+      setTelegramToken('');
+      setConfiguringTelegram(false);
+    }
+  };
 
   const copyCode = () => {
     if (userProfile?.inviteCode) {
@@ -117,6 +148,12 @@ export function useSettingsPage() {
     setEditGender,
     saving,
     updateError,
+    telegramToken,
+    setTelegramToken,
+    configuringTelegram,
+    telegramSetupError,
+    telegramSetupSuccess,
+    handleTelegramWebhookRestore,
     inviteCode,
     setInviteCode,
     linking,

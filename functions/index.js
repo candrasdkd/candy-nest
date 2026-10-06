@@ -1377,3 +1377,62 @@ exports.setTelegramWebhook = functions.https.onRequest(async (req, res) => {
     });
   }
 });
+
+// --- RESTORE TELEGRAM WEBHOOK FROM THE APP SETTINGS PAGE ---
+exports.configureTelegramWebhook = functions.https.onCall(async (data, context) => {
+  if (!context.auth) {
+    throw new functions.https.HttpsError("unauthenticated", "Masuk ke CandyNest dulu.");
+  }
+
+  const userSnap = await db.collection("users").doc(context.auth.uid).get();
+  if (!userSnap.exists || !userSnap.data().telegramChatId) {
+    throw new functions.https.HttpsError(
+        "failed-precondition",
+        "Hubungkan akun CandyNest ke bot Telegram terlebih dahulu.",
+    );
+  }
+
+  const submittedToken = String(data?.botToken || "").trim();
+  if (!submittedToken || submittedToken !== TELEGRAM_BOT_TOKEN) {
+    throw new functions.https.HttpsError(
+        "invalid-argument",
+        "Token tidak cocok dengan bot CandyNest yang dipakai backend.",
+    );
+  }
+
+  const webhookUrl = "https://us-central1-candyfinancial-16cde.cloudfunctions.net/telegramWebhook";
+  try {
+    const identity = await axios.get(`https://api.telegram.org/bot${submittedToken}/getMe`);
+    const botUsername = identity.data?.result?.username;
+    if (!identity.data?.ok || String(botUsername).toLowerCase() !== "candynest_bot") {
+      throw new functions.https.HttpsError(
+          "invalid-argument",
+          "Token ini bukan milik CandyNest Bot.",
+      );
+    }
+
+    const setup = await axios.post(
+        `https://api.telegram.org/bot${submittedToken}/setWebhook`,
+        {url: webhookUrl},
+    );
+    if (!setup.data?.ok) {
+      throw new Error("Telegram menolak pemasangan webhook.");
+    }
+
+    const status = await axios.get(
+        `https://api.telegram.org/bot${submittedToken}/getWebhookInfo`,
+    );
+    return {
+      botUsername,
+      webhookUrl: status.data?.result?.url || "",
+      pendingUpdateCount: status.data?.result?.pending_update_count || 0,
+    };
+  } catch (error) {
+    if (error instanceof functions.https.HttpsError) throw error;
+    console.error("[Telegram Setup] Gagal memasang webhook:", error.response?.data?.description || error.message);
+    throw new functions.https.HttpsError(
+        "unavailable",
+        "Telegram gagal memasang webhook. Periksa token lalu coba lagi.",
+    );
+  }
+});

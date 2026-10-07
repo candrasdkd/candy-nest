@@ -16,6 +16,7 @@ import {
   StickyNote,
   Sparkles,
   Search,
+  CreditCard,
 } from 'lucide-react';
 import { useAuthStore } from '../store/useAuthStore';
 import { useConfirmStore } from '../store/useConfirmStore';
@@ -28,6 +29,7 @@ const navItems = [
   { to: '/documents', icon: FileText, label: 'Dokumen' },
   { to: '/notes', icon: StickyNote, label: 'Catatan' },
   { to: '/planning', icon: Sparkles, label: 'Perencanaan' },
+  { to: '/installments', icon: CreditCard, label: 'Cicilan' },
   { to: '/settings', icon: Settings, label: 'Pengaturan' },
 ];
 

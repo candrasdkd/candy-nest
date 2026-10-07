@@ -1,0 +1,76 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function getUserData(uid) {
+      return get(/databases/$(database)/documents/users/$(uid)).data;
+    }
+
+    function myCoupleId() {
+      let data = getUserData(request.auth.uid);
+      return data.coupleId;
+    }
+
+    match /users/{userId} {
+      allow get: if isAuthenticated() && request.auth.uid == userId;
+      allow get: if isAuthenticated()
+        && getUserData(userId).coupleId != null
+        && getUserData(userId).coupleId == myCoupleId();
+      allow list: if isAuthenticated() && request.query.limit <= 1;
+      allow create: if isAuthenticated() && request.auth.uid == userId;
+      allow update: if isAuthenticated() && request.auth.uid == userId;
+      allow delete: if false;
+    }
+
+    match /couples/{coupleId} {
+      allow read, update: if isAuthenticated() && request.auth.uid in resource.data.members;
+      allow create: if isAuthenticated() && request.auth.uid in request.resource.data.members;
+    }
+
+    function belongsToMyCouple(data) {
+      return isAuthenticated() && data.coupleId != null && data.coupleId == myCoupleId();
+    }
+
+    match /transactions/{docId} {
+      allow read, delete: if belongsToMyCouple(resource.data);
+      allow create: if belongsToMyCouple(request.resource.data) && request.resource.data.userId == request.auth.uid;
+      allow update: if belongsToMyCouple(resource.data) && request.resource.data.coupleId == resource.data.coupleId;
+    }
+
+    match /allocations/{docId} {
+      allow read, delete: if belongsToMyCouple(resource.data);
+      allow create: if belongsToMyCouple(request.resource.data);
+      allow update: if belongsToMyCouple(resource.data) && request.resource.data.coupleId == resource.data.coupleId;
+    }
+
+    match /family_documents/{docId} {
+      allow read, delete: if belongsToMyCouple(resource.data);
+      allow create, update: if belongsToMyCouple(request.resource.data);
+    }
+
+    match /family_notes/{docId} {
+      allow read, delete: if belongsToMyCouple(resource.data);
+      allow create, update: if belongsToMyCouple(request.resource.data);
+    }
+
+    match /savingsPots/{docId} {
+      allow read, delete: if belongsToMyCouple(resource.data);
+      allow create, update: if belongsToMyCouple(request.resource.data);
+    }
+
+    match /potTransactions/{docId} {
+      allow read, delete: if belongsToMyCouple(resource.data);
+      allow create, update: if belongsToMyCouple(request.resource.data);
+    }
+
+    match /installments/{docId} {
+      allow read, delete: if belongsToMyCouple(resource.data);
+      allow create: if belongsToMyCouple(request.resource.data);
+      allow update: if belongsToMyCouple(resource.data)
+        && request.resource.data.coupleId == resource.data.coupleId;
+    }
+  }
+}

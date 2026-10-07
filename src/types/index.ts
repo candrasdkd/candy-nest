@@ -78,6 +78,22 @@ export interface MonthlyAllocation {
   order: number;
 }
 
+export interface InstallmentPayment {
+  id: string;
+  month: string; // YYYY-MM
+  amount: number;
+  createdAt: string;
+}
+
+export interface Installment {
+  id: string;
+  coupleId: string;
+  title: string;
+  totalDebt: number;
+  payments: InstallmentPayment[];
+  createdAt: string;
+}
+
 export interface UserProfile {
   uid: string;
   email: string;

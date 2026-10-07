@@ -41,6 +41,12 @@ Atur batas pengeluaran bulanan per kategori. Indikator visual dinamis akan membe
 ### 📢 Laporan Kolaboratif
 Bagikan ringkasan keuangan bulanan langsung ke WhatsApp pasangan atau simpan sebagai laporan dengan fitur *Native Share* yang rapi dan informatif.
 
+### 🤖 Telegram Bot
+Catat pengeluaran dan pembayaran cicilan tanpa membuka aplikasi:
+- Hubungkan bot **@CandyNest_bot** dari menu **Pengaturan**.
+- Ketik pengeluaran seperti `makan 35k soto ayam`, atau gunakan `/rekap`, `/rekapmingguan`, dan `/rekapbulanan`.
+- Gunakan `/cicilan` untuk melihat sisa utang. Pilih **Bayar**, lalu balas dengan format `nominal bulan/tahun`, misalnya `1.000.000 08/2026`.
+
 ### 🔔 Reminder Ganda (WA & Web Push)
 Pengingat otomatis yang cerdas:
 - **Harian (12:00 & 19:00)**: Pengingat via WA & Push jika belum ada transaksi hari ini.
@@ -102,7 +108,17 @@ cd functions
 npm install
 # Konfigurasi FONNTE_TOKEN di environment Firebase
 firebase functions:config:set fonnte.token="YOUR_TOKEN"
+
+# Simpan token dari @BotFather sebagai Firebase Secret, lalu deploy Functions
+cd ..
+firebase functions:secrets:set TELEGRAM_BOT_TOKEN
+firebase deploy --only functions
+
+# Pasang webhook dan menu command Telegram satu kali setelah deploy
+curl https://us-central1-candyfinancial-16cde.cloudfunctions.net/setTelegramWebhook
 ```
+
+Bot yang dipakai harus memiliki username **@CandyNest_bot**. Setelah webhook aktif, buka **Pengaturan → Telegram Bot** di CandyNest untuk menghubungkan akun.
 
 ---
 

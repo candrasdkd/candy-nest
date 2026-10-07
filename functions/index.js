@@ -380,6 +380,7 @@ function getScopeInlineKeyboard(txId, activeTarget) {
 }
 
 const TELEGRAM_COMMANDS = [
+  {command: "cicilan", description: "Lihat cicilan dan catat pembayaran"},
   {command: "rekap", description: "Pengeluaran hari ini"},
   {command: "rekapmingguan", description: "Rekap pengeluaran minggu ini"},
   {command: "rekapbulanan", description: "Rekap pengeluaran bulan ini"},
@@ -396,6 +397,175 @@ async function setTelegramCommands(token = TELEGRAM_BOT_TOKEN) {
       {commands: TELEGRAM_COMMANDS},
   );
   if (!response.data?.ok) throw new Error("Telegram menolak pengaturan daftar command.");
+}
+
+/** Parse a payment amount and month/year, e.g. "Rp6.000.000 08/2026". */
+function parseInstallmentPaymentInput(text) {
+  const cleaned = String(text || "").trim();
+  const monthYearMatch = cleaned.match(/^(.*?)\s+(\d{1,2})[/-](\d{4})$/);
+  const yearMonthMatch = cleaned.match(/^(.*?)\s+(\d{4})-(\d{2})$/);
+  const match = monthYearMatch || yearMonthMatch;
+  if (!match) return null;
+
+  const amountText = match[1].trim();
+  const moneyMatch = amountText.match(/^(?:rp\.?\s*)?([\d.,]+)\s*(jt|juta|m|mio|k|rb|ribu)?$/i);
+  if (!moneyMatch) return null;
+
+  const amountValue = moneyMatch[1];
+  const unit = (moneyMatch[2] || "").toLowerCase();
+  let amount;
+  if (unit) {
+    const multiplier = ["jt", "juta", "m", "mio"].includes(unit) ? 1000000 : 1000;
+    amount = Math.round(parseFloat(amountValue.replace(",", ".")) * multiplier);
+  } else {
+    amount = Number(amountValue.replace(/\D/g, ""));
+  }
+
+  const month = Number(monthYearMatch ? match[2] : match[3]);
+  const year = Number(monthYearMatch ? match[3] : match[2]);
+  if (!Number.isSafeInteger(amount) || amount <= 0 || month < 1 || month > 12 || year < 1900 || year > 9999) {
+    return null;
+  }
+
+  return {amount, month: `${year}-${String(month).padStart(2, "0")}`};
+}
+
+function formatInstallmentMonth(monthValue) {
+  const [year, month] = String(monthValue || "").split("-").map(Number);
+  if (!year || !month || month < 1 || month > 12) return String(monthValue || "");
+  return new Date(Date.UTC(year, month - 1, 1)).toLocaleDateString("id-ID", {
+    timeZone: "UTC",
+    month: "long",
+    year: "numeric",
+  });
+}
+
+/** Show installments for the linked couple and offer a payment flow. */
+async function handleInstallmentList(chatId, messageId) {
+  const linkedUserSnap = await db.collection("users")
+      .where("telegramChatId", "==", chatId)
+      .limit(1)
+      .get();
+  if (linkedUserSnap.empty) {
+    await sendTelegram(chatId, "Hubungkan akun dulu dengan <code>/connect KODE_UNDANGAN</code>.", messageId);
+    return;
+  }
+
+  const userDoc = linkedUserSnap.docs[0];
+  const userData = userDoc.data();
+  if (!userData.coupleId) {
+    await sendTelegram(chatId, "Akunmu belum terhubung dengan pasangan di CandyNest.", messageId);
+    return;
+  }
+
+  const installmentSnap = await db.collection("installments")
+      .where("coupleId", "==", userData.coupleId)
+      .get();
+  if (installmentSnap.empty) {
+    await sendTelegram(chatId, "Belum ada cicilan di akun CandyNest-mu. Tambahkan dulu lewat aplikasi.", messageId);
+    return;
+  }
+
+  const installments = installmentSnap.docs.map((doc) => ({id: doc.id, ...doc.data()}))
+      .sort((a, b) => String(a.title || "").localeCompare(String(b.title || ""), "id"));
+  const rows = installments.slice(0, 20).map((item) => {
+    const paid = (Array.isArray(item.payments) ? item.payments : [])
+        .reduce((sum, payment) => sum + (Number(payment.amount) || 0), 0);
+    const remaining = Math.max(0, (Number(item.totalDebt) || 0) - paid);
+    const title = String(item.title || "Cicilan");
+    return {
+      item,
+      paid,
+      remaining,
+      button: {text: `💳 Bayar · ${title}`.slice(0, 60), callback_data: `installment:pay:${item.id}`},
+    };
+  });
+
+  const lines = rows.map(({item, paid, remaining}) =>
+    `• <b>${escapeHtml(item.title || "Cicilan")}</b>\n` +
+    `  Dibayar ${formatRupiah(paid)} · Sisa ${formatRupiah(remaining)}`,
+  );
+  if (installments.length > rows.length) lines.push(`<i>+${installments.length - rows.length} cicilan lainnya tidak ditampilkan.</i>`);
+
+  await sendTelegram(
+      chatId,
+      `🏠 <b>Cicilan Keluarga</b>\n\n${lines.join("\n\n")}\n\nPilih cicilan untuk mencatat pembayaran.`,
+      messageId,
+      {inline_keyboard: rows.map(({button}) => [button])},
+  );
+}
+
+/** Apply a month/year payment sent as a reply to the bot's installment prompt. */
+async function handlePendingInstallmentPayment(chatId, message, text) {
+  const sessionRef = db.collection("telegramInstallmentSessions").doc(String(chatId));
+  const sessionSnap = await sessionRef.get();
+  if (!sessionSnap.exists) return false;
+
+  const session = sessionSnap.data();
+  if (message.reply_to_message?.message_id !== session.promptMessageId) return false;
+
+  if (!Number.isFinite(session.expiresAt) || Date.now() > session.expiresAt) {
+    await sessionRef.delete();
+    await sendTelegram(chatId, "Waktu mencatat pembayaran sudah habis. Ketik <code>/cicilan</code> untuk mencoba lagi.", message.message_id);
+    return true;
+  }
+  if (text.trim().toLowerCase() === "/cancel") {
+    await sessionRef.delete();
+    await sendTelegram(chatId, "Pencatatan pembayaran dibatalkan.", message.message_id);
+    return true;
+  }
+
+  const parsed = parseInstallmentPaymentInput(text);
+  if (!parsed) {
+    await sendTelegram(
+        chatId,
+        "Format belum sesuai. Balas prompt dengan <code>nominal bulan/tahun</code>, misalnya <code>6.000.000 08/2026</code>. Ketik <code>/cancel</code> untuk batal.",
+        message.message_id,
+    );
+    return true;
+  }
+
+  const userRef = db.collection("users").doc(session.userId);
+  const userSnap = await userRef.get();
+  const installmentRef = db.collection("installments").doc(session.installmentId);
+  if (!userSnap.exists || userSnap.data().telegramChatId !== chatId || userSnap.data().coupleId !== session.coupleId) {
+    await sessionRef.delete();
+    await sendTelegram(chatId, "Koneksi akun berubah. Hubungkan kembali akun Telegram-mu untuk mencatat pembayaran.", message.message_id);
+    return true;
+  }
+
+  const paymentId = db.collection("installments").doc().id;
+  const result = await db.runTransaction(async (transaction) => {
+    const installmentSnap = await transaction.get(installmentRef);
+    if (!installmentSnap.exists || installmentSnap.data().coupleId !== session.coupleId) return {error: "missing"};
+    const data = installmentSnap.data();
+    const payments = Array.isArray(data.payments) ? data.payments : [];
+    const paid = payments.reduce((sum, payment) => sum + (Number(payment.amount) || 0), 0);
+    const totalDebt = Number(data.totalDebt) || 0;
+    if (paid + parsed.amount > totalDebt) return {error: "exceeds"};
+
+    const payment = {id: paymentId, month: parsed.month, amount: parsed.amount, createdAt: new Date().toISOString()};
+    transaction.update(installmentRef, {payments: [...payments, payment]});
+    return {payment, title: data.title || "Cicilan", remaining: totalDebt - paid - parsed.amount};
+  });
+
+  if (result.error === "missing") {
+    await sessionRef.delete();
+    await sendTelegram(chatId, "Cicilan tidak ditemukan atau bukan milik akunmu.", message.message_id);
+    return true;
+  }
+  if (result.error === "exceeds") {
+    await sendTelegram(chatId, "Nominal pembayaran melebihi sisa utang. Kirim nominal yang lebih kecil atau ketik <code>/cancel</code>.", message.message_id);
+    return true;
+  }
+
+  await sessionRef.delete();
+  await sendTelegram(
+      chatId,
+      `✅ <b>Pembayaran cicilan tercatat</b>\n${escapeHtml(result.title)}\n${escapeHtml(formatInstallmentMonth(parsed.month))} · ${formatRupiah(parsed.amount)}\nSisa utang ${formatRupiah(result.remaining)}`,
+      message.message_id,
+  );
+  return true;
 }
 
 /** Create category selection buttons for correcting a bot expense. */
@@ -1102,6 +1272,7 @@ async function handleHelp(chatId, messageId) {
       "• /rekap - Lihat pengeluaran hari ini\n" +
       "• /rekapmingguan - Rekap dari Senin sampai hari ini\n" +
       "• /rekapbulanan - Rekap pengeluaran bulan ini\n" +
+      "• /cicilan - Lihat cicilan dan catat pembayaran\n" +
       "• /undo - Batalkan pengeluaran bot terakhir (maks. 24 jam)\n" +
       "• /connect KODE - Hubungkan akun CandyNest\n" +
       "• /disconnect - Putuskan koneksi akun\n" +
@@ -1244,6 +1415,58 @@ async function handleCallbackQuery(callbackQuery) {
   const message = callbackQuery.message;
   const chatId = message?.chat?.id;
   const messageId = message?.message_id;
+
+  if (data.startsWith("installment:pay:")) {
+    const installmentId = data.slice("installment:pay:".length);
+    const linkedUserSnap = await db.collection("users")
+        .where("telegramChatId", "==", chatId)
+        .limit(1)
+        .get();
+    if (linkedUserSnap.empty) {
+      await answerCallback(queryId, "Hubungkan akun CandyNest terlebih dahulu.");
+      return;
+    }
+
+    const linkedUser = linkedUserSnap.docs[0];
+    const userData = linkedUser.data();
+    const installmentRef = db.collection("installments").doc(installmentId);
+    const installmentSnap = await installmentRef.get();
+    if (!installmentSnap.exists || !userData.coupleId || installmentSnap.data().coupleId !== userData.coupleId) {
+      await answerCallback(queryId, "Cicilan tidak ditemukan atau bukan milik akunmu.");
+      return;
+    }
+
+    const installment = installmentSnap.data();
+    const payments = Array.isArray(installment.payments) ? installment.payments : [];
+    const paid = payments.reduce((sum, payment) => sum + (Number(payment.amount) || 0), 0);
+    const remaining = Math.max(0, (Number(installment.totalDebt) || 0) - paid);
+    if (remaining <= 0) {
+      await answerCallback(queryId, "Cicilan ini sudah lunas.");
+      return;
+    }
+
+    const prompt = await sendTelegram(
+        chatId,
+        `💳 <b>${escapeHtml(installment.title || "Cicilan")}</b>\nSisa utang: ${formatRupiah(remaining)}\n\nBalas pesan ini dengan <code>nominal bulan/tahun</code>, misalnya <code>6.000.000 08/2026</code>. Ketik <code>/cancel</code> untuk batal.`,
+        messageId,
+        {force_reply: true, selective: true, input_field_placeholder: "Contoh: 6.000.000 08/2026"},
+    );
+    const promptMessageId = prompt?.result?.message_id;
+    if (!promptMessageId) {
+      await answerCallback(queryId, "Gagal membuka form pembayaran. Coba lagi.");
+      return;
+    }
+
+    await db.collection("telegramInstallmentSessions").doc(String(chatId)).set({
+      installmentId,
+      userId: linkedUser.id,
+      coupleId: userData.coupleId,
+      promptMessageId,
+      expiresAt: Date.now() + 10 * 60 * 1000,
+    });
+    await answerCallback(queryId, "Balas pesan bot untuk menyimpan pembayaran.");
+    return;
+  }
 
   if (data.startsWith("undo:")) {
     const [, action, txId] = data.split(":");
@@ -1484,6 +1707,11 @@ exports.telegramWebhook = functions.runWith({secrets: ["TELEGRAM_BOT_TOKEN"]}).h
   }
 
   try {
+    if (await handlePendingInstallmentPayment(chatId, message, text)) {
+      res.status(200).send("OK");
+      return;
+    }
+
     if (await handlePendingNoteEdit(chatId, message, text)) {
       res.status(200).send("OK");
       return;
@@ -1521,6 +1749,12 @@ exports.telegramWebhook = functions.runWith({secrets: ["TELEGRAM_BOT_TOKEN"]}).h
 
     if (command === "/disconnect") {
       await handleDisconnect(chatId, message.message_id);
+      res.status(200).send("OK");
+      return;
+    }
+
+    if (["/cicilan", "/installments"].includes(command)) {
+      await handleInstallmentList(chatId, message.message_id);
       res.status(200).send("OK");
       return;
     }

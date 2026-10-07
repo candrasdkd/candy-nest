@@ -46,6 +46,7 @@ Catat pengeluaran dan pembayaran cicilan tanpa membuka aplikasi:
 - Hubungkan bot **@CandyNest_bot** dari menu **Pengaturan**.
 - Ketik pengeluaran seperti `makan 35k soto ayam`, atau gunakan `/rekap`, `/rekapmingguan`, dan `/rekapbulanan`.
 - Gunakan `/cicilan` untuk melihat sisa utang. Pilih **Bayar**, lalu balas dengan format `nominal bulan/tahun`, misalnya `1.000.000 08/2026`.
+- Gunakan `/riwayatcicilan` untuk melihat semua pembayaran cicilan dengan paginasi.
 
 ### 🔔 Reminder Ganda (WA & Web Push)
 Pengingat otomatis yang cerdas:
@@ -133,7 +134,14 @@ Bot yang dipakai harus memiliki username **@CandyNest_bot**. Setelah webhook akt
 │   ├── types/          # TypeScript Interfaces & Constants
 │   ├── utils/          # Helpers (OCR, Formatting, Image Comp)
 │   └── sw.ts           # PWA & Push Notification Logic
-├── functions/          # Scheduled Tasks & WhatsApp Reminder
+├── functions/
+│   ├── index.js        # Scheduled Tasks & WhatsApp Reminder
+│   └── telegram/
+│       ├── index.js         # Telegram webhook, routing, and shared helpers
+│       ├── accounts.js      # Connect, disconnect, and help commands
+│       ├── expenses.js      # Expense entry and corrections
+│       ├── reports.js       # Daily/weekly/monthly reports and undo
+│       └── installments.js  # Installment listing and payment records
 └── public/             # Static Assets & PWA Icons
 ```
 

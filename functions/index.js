@@ -129,7 +129,7 @@ exports.dailyReminderWA = functions.pubsub
     });
 
 // --- TELEGRAM BOT INTEGRATION ---
-const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || "8915111525:AAEl0sxFvf7HcQbtChjdWyiVr6642Y2F1-8";
+const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 
 const EXPENSE_CATEGORIES_CONFIG = [
   {
@@ -1445,7 +1445,7 @@ async function handleCallbackQuery(callbackQuery) {
 }
 
 // --- HTTP ENDPOINT WEBHOOK TELEGRAM ---
-exports.telegramWebhook = functions.https.onRequest(async (req, res) => {
+exports.telegramWebhook = functions.runWith({secrets: ["TELEGRAM_BOT_TOKEN"]}).https.onRequest(async (req, res) => {
   if (req.method !== "POST") {
     res.status(200).send("CandyNest Telegram Webhook is active.");
     return;
@@ -1569,7 +1569,7 @@ exports.telegramWebhook = functions.https.onRequest(async (req, res) => {
 });
 
 // --- HELPER UNTUK SET WEBHOOK TELEGRAM OTOMATIS ---
-exports.setTelegramWebhook = functions.https.onRequest(async (req, res) => {
+exports.setTelegramWebhook = functions.runWith({secrets: ["TELEGRAM_BOT_TOKEN"]}).https.onRequest(async (req, res) => {
   try {
     const webhookUrl = "https://us-central1-candyfinancial-16cde.cloudfunctions.net/telegramWebhook";
     const resp = await axios.post(
@@ -1592,7 +1592,7 @@ exports.setTelegramWebhook = functions.https.onRequest(async (req, res) => {
 });
 
 // --- RESTORE TELEGRAM WEBHOOK FROM THE APP SETTINGS PAGE ---
-exports.configureTelegramWebhook = functions.https.onCall(async (data, context) => {
+exports.configureTelegramWebhook = functions.runWith({secrets: ["TELEGRAM_BOT_TOKEN"]}).https.onCall(async (data, context) => {
   if (!context.auth) {
     throw new functions.https.HttpsError("unauthenticated", "Masuk ke CandyNest dulu.");
   }

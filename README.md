@@ -48,9 +48,8 @@ Catat pengeluaran dan pembayaran cicilan tanpa membuka aplikasi:
 - Gunakan `/cicilan` untuk melihat sisa utang. Pilih **Bayar**, lalu balas dengan format `nominal bulan/tahun`, misalnya `1.000.000 08/2026`.
 - Gunakan `/riwayatcicilan` untuk melihat semua pembayaran cicilan dengan paginasi.
 
-### 🔔 Reminder Ganda (WA & Web Push)
-Pengingat otomatis yang cerdas:
-- **Harian (12:00 & 19:00)**: Pengingat via WA & Push jika belum ada transaksi hari ini.
+### 🔔 Reminder Web Push
+Pengingat otomatis harian pukul **12:00 & 19:00 WIB** melalui Web Push jika belum ada transaksi hari ini. Pengingat WhatsApp lama sudah dihapus; WhatsApp sekarang hanya membalas perintah yang dikirim ke bot.
 
 ---
 
@@ -107,11 +106,12 @@ npm run dev
 ```bash
 cd functions
 npm install
-# Konfigurasi FONNTE_TOKEN di environment Firebase
-firebase functions:config:set fonnte.token="YOUR_TOKEN"
+cd ..
+# Simpan token API dan secret webhook dari dashboard Fonnte sebagai Firebase Secret
+firebase functions:secrets:set FONNTE_TOKEN
+firebase functions:secrets:set FONNTE_WEBHOOK_SECRET
 
 # Simpan token dari @BotFather sebagai Firebase Secret, lalu deploy Functions
-cd ..
 firebase functions:secrets:set TELEGRAM_BOT_TOKEN
 firebase deploy --only functions
 
@@ -120,6 +120,16 @@ curl https://us-central1-candyfinancial-16cde.cloudfunctions.net/setTelegramWebh
 ```
 
 Bot yang dipakai harus memiliki username **@CandyNest_bot**. Setelah webhook aktif, buka **Pengaturan → Telegram Bot** di CandyNest untuk menghubungkan akun.
+
+Untuk WhatsApp, masukkan `https://us-central1-candyfinancial-16cde.cloudfunctions.net/whatsappWebhook?key=<SECRET>` sebagai webhook perangkat Fonnte. Ganti `<SECRET>` dengan nilai Firebase Secret `FONNTE_WEBHOOK_SECRET` yang sama; field secret terpisah tidak diperlukan. Aktifkan **Auto Read**. Hubungkan akun lewat chat pribadi dengan `HUBUNGKAN KODE_UNDANGAN`.
+
+Setelah terhubung, kirim `MENU` untuk daftar perintah. Bot WhatsApp mendukung pencatatan pengeluaran, rekap, cicilan, serta fitur keuangan lain:
+- `POS` untuk melihat saldo pos tabungan; `SETOR 1 250rb catatan` atau `AMBIL 1 100rb catatan` untuk mencatat mutasi.
+- `ALOKASI` untuk melihat rencana pembagian bulanan.
+- `RIWAYAT TRANSAKSI [halaman]` untuk melihat transaksi terbaru.
+- `CICILAN`, `BAYAR 1 1.000.000 08/2026`, dan `RIWAYAT CICILAN [halaman]` untuk cicilan.
+
+Pesan biasa yang tidak cocok dengan perintah atau format catat pengeluaran akan diabaikan bot.
 
 ---
 
@@ -135,7 +145,15 @@ Bot yang dipakai harus memiliki username **@CandyNest_bot**. Setelah webhook akt
 │   ├── utils/          # Helpers (OCR, Formatting, Image Comp)
 │   └── sw.ts           # PWA & Push Notification Logic
 ├── functions/
-│   ├── index.js        # Scheduled Tasks & WhatsApp Reminder
+│   ├── index.js        # Scheduled Web Push Reminder
+│   ├── whatsapp/
+│   │   ├── index.js         # Fonnte webhook and message routing
+│   │   ├── accounts.js      # WhatsApp account linking and help
+│   │   ├── expenses.js      # Expense entry using the shared Telegram parser
+│   │   ├── reports.js       # Summaries and undo confirmation
+│   │   ├── installments.js  # Installment payments and paginated history
+│   │   ├── finance.js       # Savings pots, allocations, and transaction history
+│   │   └── utils.js         # Phone, amount, and date formatting
 │   └── telegram/
 │       ├── index.js         # Telegram webhook, routing, and shared helpers
 │       ├── accounts.js      # Connect, disconnect, and help commands

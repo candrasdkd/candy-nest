@@ -828,7 +828,13 @@ function createExpenseHandlers({db, admin, sendTelegram, editTelegramMessage, an
 
   // --- HTTP ENDPOINT WEBHOOK TELEGRAM ---
 
-  return {handleExpenseRecord, handlePendingNoteEdit, handleExpenseCallback: handleCallbackQuery, getCategoryLabel};
+  return {
+    handleExpenseRecord,
+    handlePendingNoteEdit,
+    handleExpenseCallback: handleCallbackQuery,
+    getCategoryLabel,
+    parseExpenseText,
+  };
 }
 
 module.exports = {createExpenseHandlers};

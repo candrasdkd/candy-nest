@@ -106,6 +106,8 @@ export interface UserProfile {
   gender: 'male' | 'female' | null;
   fcmTokens?: string[];
   telegramChatId?: number;
+  whatsappNumber?: string;
+  whatsappName?: string;
 }
 
 export interface CoupleData {

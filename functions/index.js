@@ -1,15 +1,11 @@
 const functions = require("firebase-functions");
 const admin = require("firebase-admin");
-const axios = require("axios");
 
 admin.initializeApp();
 const db = admin.firestore();
 
-const FONNTE_TOKEN = process.env.FONNTE_TOKEN;
-const TARGET_NUMBERS = process.env.TARGET_NUMBERS;
-
-// --- JADWAL: JAM 12:00 dan 19:00 WIB ---
-exports.dailyReminderWA = functions.pubsub
+// --- PUSH REMINDER: JAM 12:00 dan 19:00 WIB ---
+exports.dailyReminderPush = functions.pubsub
     .schedule("0 12,19 * * *")
     .timeZone("Asia/Jakarta")
     .onRun(async (context) => {
@@ -41,26 +37,6 @@ exports.dailyReminderWA = functions.pubsub
       } else {
         message = "Sudah mau istirahat? Yuk, luangkan waktu 1 menit buat rekap keuangan hari ini di Candy Financial. Biar besok bangun dengan tenang! 🍭";
         pushTitle = "Rekap Hari Ini 🍭";
-      }
-
-      if (txSnapshot.empty && TARGET_NUMBERS) {
-        try {
-          await axios.post(
-              "https://api.fonnte.com/send",
-              {
-                target: TARGET_NUMBERS,
-                message: message,
-                countryCode: "62",
-              },
-              {
-                headers: {
-                  Authorization: FONNTE_TOKEN,
-                },
-              },
-          );
-        } catch (error) {
-          console.error("[GAGAL] Tidak bisa mengirim WA via Fonnte:", error.message);
-        }
       }
 
       try {
@@ -129,3 +105,4 @@ exports.dailyReminderWA = functions.pubsub
     });
 
 Object.assign(exports, require("./telegram"));
+Object.assign(exports, require("./whatsapp"));

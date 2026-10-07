@@ -157,6 +157,24 @@ export default function Settings() {
                       {saving ? '...' : isEditing ? 'Simpan' : 'Ubah Profil'}
                     </button>
                   </div>
+                  <div className="mt-4 max-w-sm rounded-2xl border border-sage-100 bg-sage-50/80 p-4 text-left">
+                    <div className="mb-2 text-[10px] font-bold uppercase tracking-widest text-sage-400">Kode Undangan Kita</div>
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="truncate font-mono text-xl font-bold tracking-[0.2em] text-sage-800">
+                        {userProfile?.inviteCode || 'Belum tersedia'}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={copyCode}
+                        disabled={!userProfile?.inviteCode}
+                        aria-label={copied ? 'Kode undangan tersalin' : 'Salin kode undangan'}
+                        className={`flex shrink-0 items-center gap-2 rounded-xl px-3 py-2 text-xs font-bold transition-all disabled:cursor-not-allowed disabled:opacity-50 ${copied ? 'bg-emerald-500 text-white' : 'bg-white text-sage-600 shadow-sm hover:bg-sage-100'}`}
+                      >
+                        {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                        {copied ? 'Tersalin' : 'Salin'}
+                      </button>
+                    </div>
+                  </div>
                 </div>
               )}
               {updateError && <p className="text-xs text-rose-500 font-bold mt-2 text-center md:text-left">{updateError}</p>}
@@ -204,19 +222,6 @@ export default function Settings() {
                 </div>
 
                 <div className="space-y-4">
-                  <div className="p-4 bg-sage-50 rounded-2xl border border-sage-100">
-                    <label className="text-[10px] font-bold text-sage-400 uppercase tracking-widest mb-2 block">Kode Undangan Kamu</label>
-                    <div className="flex items-center justify-between">
-                      <span className="font-mono text-2xl font-bold text-sage-800 tracking-widest">{userProfile?.inviteCode}</span>
-                      <button
-                        onClick={copyCode}
-                        className={`p-3 rounded-xl transition-all ${copied ? 'bg-emerald-500 text-white' : 'bg-white text-sage-600 hover:bg-sage-100 shadow-sm'}`}
-                      >
-                        {copied ? <Check className="w-5 h-5" /> : <Copy className="w-5 h-5" />}
-                      </button>
-                    </div>
-                  </div>
-
                   <form onSubmit={handleLink} className="space-y-3 pt-2">
                     <input
                       type="text"

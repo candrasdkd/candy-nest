@@ -85,9 +85,14 @@ export function useSettingsPage() {
     }
   };
 
-  const copyCode = () => {
+  const copyCode = async () => {
     if (userProfile?.inviteCode) {
-      navigator.clipboard.writeText(userProfile.inviteCode);
+      try {
+        await navigator.clipboard.writeText(userProfile.inviteCode);
+      } catch (error) {
+        console.error('Gagal menyalin kode undangan:', error);
+        return;
+      }
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     }

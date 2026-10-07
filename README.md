@@ -23,12 +23,6 @@ Bukan sekadar catatan biasa. Sistem cerdas kami mengenali apa yang Anda tulis:
 - 📸 **Multi-Image Attachment**: Lampirkan hingga 4 foto per catatan dengan teknologi kompresi cerdas (Hemat, Standar, Tajam).
 - 📲 **Export to WhatsApp**: Kirim isi catatan langsung ke WhatsApp pasangan dengan satu klik.
 
-### 🏺 Pos Tabungan (Envelope Budgeting)
-Kelola target masa depan dengan sistem pos (envelopes):
-- **Alokasi Gaji**: Wizard cerdas untuk membagi pendapatan ke berbagai pos sekaligus.
-- **Target Progress**: Pantau persentase pencapaian target tabungan dengan indikator visual yang cantik.
-- **Riwayat Mutasi**: Setiap uang masuk dan keluar dicatat dengan detail siapa yang melakukan perubahan.
-
 ### 📂 Brankas Dokumen (Smart OCR)
 Simpan KTP, KK, Akta, dan dokumen penting lainnya di satu tempat aman
 
@@ -118,10 +112,9 @@ curl https://us-central1-candyfinancial-16cde.cloudfunctions.net/setTelegramWebh
 
 Bot yang dipakai harus memiliki username **@CandyNest_bot**. Setelah webhook aktif, buka **Pengaturan → Telegram Bot** di CandyNest untuk menghubungkan akun.
 
-Untuk WhatsApp, masukkan `https://us-central1-candyfinancial-16cde.cloudfunctions.net/whatsappWebhook?key=<SECRET>` sebagai webhook perangkat Fonnte. Ganti `<SECRET>` dengan nilai Firebase Secret `FONNTE_WEBHOOK_SECRET` yang sama; field secret terpisah tidak diperlukan. Aktifkan **Auto Read**. Hubungkan akun lewat chat pribadi dengan `HUBUNGKAN KODE_UNDANGAN`.
+Untuk WhatsApp, masukkan `https://us-central1-candyfinancial-16cde.cloudfunctions.net/whatsappWebhook?key=<SECRET>` sebagai webhook perangkat Fonnte. Ganti `<SECRET>` dengan nilai Firebase Secret `FONNTE_WEBHOOK_SECRET` yang sama; field secret terpisah tidak diperlukan. Aktifkan **Auto Read** agar webhook berfungsi. Jika tersedia, aktifkan juga **Silent Auto Read** supaya pesan dibaca tanpa menandainya sebagai sudah dibaca. Hubungkan akun lewat chat pribadi dengan `HUBUNGKAN KODE_UNDANGAN`.
 
-Setelah terhubung, kirim `MENU` untuk daftar perintah. Bot WhatsApp mendukung pencatatan pengeluaran, rekap, cicilan, serta fitur keuangan lain:
-- `POS` untuk melihat saldo pos tabungan; `SETOR 1 250rb catatan` atau `AMBIL 1 100rb catatan` untuk mencatat mutasi.
+Setelah terhubung, kirim `MENU` untuk daftar perintah. Bot WhatsApp mendukung pencatatan pengeluaran, rekap, cicilan, dan perencanaan:
 - `ALOKASI` untuk melihat rencana pembagian bulanan.
 - `RIWAYAT TRANSAKSI [halaman]` untuk melihat transaksi terbaru.
 - `CICILAN`, `BAYAR 1 1.000.000 08/2026`, dan `RIWAYAT CICILAN [halaman]` untuk cicilan.
@@ -135,7 +128,7 @@ Pesan biasa yang tidak cocok dengan perintah atau format catat pengeluaran akan 
 ```text
 ├── src/
 │   ├── components/     # UI Components (Modals, Cards, Layouts)
-│   ├── store/          # Zustand State (Auth, Trans, Savings, Notes)
+│   ├── store/          # Zustand State (Auth, Trans, Planning, Notes)
 │   ├── hooks/          # Business Logic & Data Fetching
 │   ├── pages/          # Full Page Views (Dashboard, Notes, Pots, etc.)
 │   ├── types/          # TypeScript Interfaces & Constants
@@ -149,7 +142,7 @@ Pesan biasa yang tidak cocok dengan perintah atau format catat pengeluaran akan 
 │   │   ├── expenses.js      # Expense entry using the shared Telegram parser
 │   │   ├── reports.js       # Summaries and undo confirmation
 │   │   ├── installments.js  # Installment payments and paginated history
-│   │   ├── finance.js       # Savings pots, allocations, and transaction history
+│   │   ├── finance.js       # Allocations and transaction history
 │   │   └── utils.js         # Phone, amount, and date formatting
 │   └── telegram/
 │       ├── index.js         # Telegram webhook, routing, and shared helpers

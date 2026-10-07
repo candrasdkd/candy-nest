@@ -56,16 +56,6 @@ service cloud.firestore {
       allow create, update: if belongsToMyCouple(request.resource.data);
     }
 
-    match /savingsPots/{docId} {
-      allow read, delete: if belongsToMyCouple(resource.data);
-      allow create, update: if belongsToMyCouple(request.resource.data);
-    }
-
-    match /potTransactions/{docId} {
-      allow read, delete: if belongsToMyCouple(resource.data);
-      allow create, update: if belongsToMyCouple(request.resource.data);
-    }
-
     match /installments/{docId} {
       allow read, delete: if belongsToMyCouple(resource.data);
       allow create: if belongsToMyCouple(request.resource.data);

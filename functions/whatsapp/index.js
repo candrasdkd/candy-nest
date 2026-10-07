@@ -52,7 +52,7 @@ const reportHandlers = createWhatsappReportHandlers({
   sendWhatsApp,
   getCategoryLabel: expenseParser.getCategoryLabel,
 });
-const financeHandlers = createWhatsappFinanceHandlers({db, admin, sendWhatsApp});
+const financeHandlers = createWhatsappFinanceHandlers({db, sendWhatsApp});
 
 async function routeMessage(phone, rawText, name) {
   const text = String(rawText || "").trim();
@@ -106,22 +106,8 @@ async function routeMessage(phone, rawText, name) {
     await reportHandlers.handleSummary(phone, "day");
     return;
   }
-  if (["pos", "tabungan", "pos tabungan"].includes(lower)) {
-    await financeHandlers.handlePots(phone);
-    return;
-  }
   if (["alokasi", "alokasi bulanan", "perencanaan"].includes(lower)) {
     await financeHandlers.handleAllocations(phone);
-    return;
-  }
-  const depositMatch = normalized.match(/^(?:setor|deposit)(?:\s+(.+))?$/i);
-  if (depositMatch) {
-    await financeHandlers.handlePotMutation(phone, "deposit", depositMatch[1] || "");
-    return;
-  }
-  const withdrawMatch = normalized.match(/^(?:ambil|tarik)(?:\s+(.+))?$/i);
-  if (withdrawMatch) {
-    await financeHandlers.handlePotMutation(phone, "withdraw", withdrawMatch[1] || "");
     return;
   }
   const transactionHistoryMatch = lower.match(/^(?:riwayat transaksi|transaksi)(?:\s+(\d+))?$/);

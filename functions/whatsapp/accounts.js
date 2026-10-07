@@ -83,10 +83,7 @@ function createWhatsappAccountHandlers({db, admin, sendWhatsApp}) {
         "• REKAP MINGGUAN\n" +
         "• REKAP BULANAN\n" +
         "• UNDO — batalkan transaksi terakhir\n\n" +
-        "TABUNGAN & PERENCANAAN\n" +
-        "• POS — lihat saldo pos tabungan\n" +
-        "• SETOR 1 250rb catatan — setor ke pos\n" +
-        "• AMBIL 1 100rb catatan — tarik dari pos\n" +
+        "PERENCANAAN\n" +
         "• ALOKASI — lihat rencana bulanan\n" +
         "• RIWAYAT TRANSAKSI [halaman]\n\n" +
         "Ketik PUTUSKAN untuk melepas akun WhatsApp ini.",

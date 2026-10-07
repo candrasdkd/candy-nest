@@ -48,9 +48,6 @@ Catat pengeluaran dan pembayaran cicilan tanpa membuka aplikasi:
 - Gunakan `/cicilan` untuk melihat sisa utang. Pilih **Bayar**, lalu balas dengan format `nominal bulan/tahun`, misalnya `1.000.000 08/2026`.
 - Gunakan `/riwayatcicilan` untuk melihat semua pembayaran cicilan dengan paginasi.
 
-### 🔔 Reminder Web Push
-Pengingat otomatis harian pukul **12:00 & 19:00 WIB** melalui Web Push jika belum ada transaksi hari ini. Pengingat WhatsApp lama sudah dihapus; WhatsApp sekarang hanya membalas perintah yang dikirim ke bot.
-
 ---
 
 ## 🎨 Estetika & User Experience
@@ -145,7 +142,7 @@ Pesan biasa yang tidak cocok dengan perintah atau format catat pengeluaran akan 
 │   ├── utils/          # Helpers (OCR, Formatting, Image Comp)
 │   └── sw.ts           # PWA & Push Notification Logic
 ├── functions/
-│   ├── index.js        # Scheduled Web Push Reminder
+│   ├── index.js        # Exports Telegram and WhatsApp functions
 │   ├── whatsapp/
 │   │   ├── index.js         # Fonnte webhook and message routing
 │   │   ├── accounts.js      # WhatsApp account linking and help
